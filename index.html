@@ -1,0 +1,1255 @@
+```html
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Saab 9-3 Gas Mileage Tracker</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tesseract.js OCR Engine CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        saab: {
+                            bg: '#090d16',
+                            card: '#131b2e',
+                            border: '#1e293b',
+                            emerald: '#10b981',
+                            teal: '#14b8a6',
+                            amber: '#f59e0b',
+                            cyan: '#06b6d4',
+                            rose: '#f43f5e'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Base Reset & Mobile Scrollbar */
+        * { -webkit-tap-highlight-color: transparent; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #090d16; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+        
+        /* Prevent spin buttons on number inputs */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type="number"] { -moz-appearance: textfield; }
+
+        /* Modal display control to ensure absolute pointer safety */
+        .modal-overlay {
+            display: none;
+            pointer-events: none;
+        }
+        .modal-overlay.active {
+            display: flex;
+            pointer-events: auto;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased flex flex-col items-center justify-start pb-24">
+
+    <!-- Top Navigation & Header -->
+    <header class="w-full max-w-xl bg-slate-900/90 border-b border-slate-800 sticky top-0 z-30 shadow-xl backdrop-blur-md">
+        <div class="px-4 py-3 flex items-center justify-between">
+            <!-- App Identity -->
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold shadow-inner">
+                    <i class="fa-solid fa-gauge-high text-lg"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-1.5">
+                        <h1 class="text-base font-extrabold text-slate-100 tracking-tight leading-tight">Saab 9-3 Telemetry</h1>
+                        <span class="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 font-bold">SID 2.0</span>
+                    </div>
+                    <p class="text-xs text-slate-400">Intelligent Gas & Speed Logger</p>
+                </div>
+            </div>
+
+            <!-- PROMINENT TOP LOG FILL-UP BUTTON -->
+            <button id="btnOpenWizardTop" type="button" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 active:scale-95 text-white font-extrabold text-xs shadow-lg shadow-emerald-950/60 transition flex items-center gap-2 cursor-pointer z-10">
+                <i class="fa-solid fa-plus-circle text-sm"></i>
+                <span>Log Fill-Up</span>
+            </button>
+        </div>
+
+        <!-- Saab 9-3 Factory Specs Reference Bar -->
+        <div class="px-4 py-2 bg-slate-950/80 border-t border-slate-800/80 grid grid-cols-3 gap-2 text-center text-xs">
+            <div class="bg-slate-900/70 p-1.5 rounded-lg border border-slate-800/80">
+                <div class="text-slate-400 text-[9px] uppercase font-medium">Capacity</div>
+                <div class="font-bold text-slate-200 mt-0.5">16.0 – 16.4 gal</div>
+            </div>
+            <div class="bg-slate-900/70 p-1.5 rounded-lg border border-slate-800/80">
+                <div class="text-slate-400 text-[9px] uppercase font-medium">Factory Specs</div>
+                <div class="font-bold text-emerald-400 mt-0.5">19<span class="text-slate-400 text-[9px]">C</span> / 22.5<span class="text-slate-400 text-[9px]">Mix</span> / 28.5<span class="text-slate-400 text-[9px]">Hwy</span></div>
+            </div>
+            <div class="bg-slate-900/70 p-1.5 rounded-lg border border-slate-800/80">
+                <div class="text-slate-400 text-[9px] uppercase font-medium">Expected Range</div>
+                <div class="font-bold text-slate-200 mt-0.5">304 – 464 mi</div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Body -->
+    <main class="w-full max-w-xl px-4 py-4 space-y-4">
+
+        <!-- Storage & Control Toolbar -->
+        <div class="flex items-center justify-between text-xs px-1">
+            <span class="text-slate-400 font-medium flex items-center gap-1.5">
+                <i class="fa-solid fa-car-side text-emerald-400"></i> Saab Telemetry Metrics
+            </span>
+            <div class="flex items-center gap-2">
+                <button id="btnExportCSV" type="button" class="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 transition flex items-center gap-1.5 cursor-pointer">
+                    <i class="fa-solid fa-file-csv text-emerald-400"></i> Export CSV
+                </button>
+                <button id="btnResetDemo" type="button" class="px-2 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 transition cursor-pointer" title="Reset Demo Baseline">
+                    <i class="fa-solid fa-rotate-left"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Metric Cards -->
+        <section class="grid grid-cols-2 gap-3">
+            <!-- Last Tank MPG -->
+            <div class="bg-slate-900 border border-slate-800/90 p-3.5 rounded-2xl flex flex-col justify-between shadow-lg">
+                <div class="flex justify-between items-start">
+                    <span class="text-xs font-semibold text-slate-400">Last Tank MPG</span>
+                    <span id="mpgBadge" class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-bold">--</span>
+                </div>
+                <div class="mt-2 flex items-baseline gap-1">
+                    <span id="statLastMPG" class="text-2xl font-black text-slate-100">--</span>
+                    <span class="text-xs text-slate-400">mpg</span>
+                </div>
+                <div class="mt-1 text-[11px] text-slate-400 truncate" id="mpgBenchmarkCompare">Target: 22–23 Combined</div>
+            </div>
+
+            <!-- Driving Pace Profile (Average Speed) -->
+            <div class="bg-slate-900 border border-slate-800/90 p-3.5 rounded-2xl flex flex-col justify-between shadow-lg">
+                <div class="flex justify-between items-start">
+                    <span class="text-xs font-semibold text-slate-400">Driving Pace</span>
+                    <i class="fa-solid fa-tachometer-alt text-xs text-cyan-400"></i>
+                </div>
+                <div class="mt-2 flex items-baseline gap-1">
+                    <span id="statAvgMPH" class="text-2xl font-black text-cyan-400">--</span>
+                    <span class="text-xs text-slate-400">mph avg</span>
+                </div>
+                <div class="mt-1 text-[11px] text-slate-400 truncate" id="statProfileBadge">Profile: Baseline</div>
+            </div>
+
+            <!-- Cost Per Mile -->
+            <div class="bg-slate-900 border border-slate-800/90 p-3.5 rounded-2xl flex flex-col justify-between shadow-lg">
+                <div class="flex justify-between items-start">
+                    <span class="text-xs font-semibold text-slate-400">Cost / Mile</span>
+                    <i class="fa-solid fa-coins text-xs text-amber-400"></i>
+                </div>
+                <div class="mt-2 flex items-baseline gap-1">
+                    <span id="statCostPerMile" class="text-2xl font-black text-amber-400">--</span>
+                    <span class="text-xs text-slate-400">/ mi</span>
+                </div>
+                <div class="mt-1 text-[11px] text-slate-400 truncate" id="statTotalMiles">0 mi tracked</div>
+            </div>
+
+            <!-- Total Fuel Spent -->
+            <div class="bg-slate-900 border border-slate-800/90 p-3.5 rounded-2xl flex flex-col justify-between shadow-lg">
+                <div class="flex justify-between items-start">
+                    <span class="text-xs font-semibold text-slate-400">Total Spent</span>
+                    <i class="fa-solid fa-gas-pump text-xs text-emerald-400"></i>
+                </div>
+                <div class="mt-2">
+                    <span id="statTotalCost" class="text-2xl font-black text-slate-100">$0.00</span>
+                </div>
+                <div class="mt-1 text-[11px] text-slate-400 truncate" id="statTotalGallons">0.00 gal total</div>
+            </div>
+        </section>
+
+        <!-- Pending Partial Fuel Accumulator Banner -->
+        <div id="pendingPartialBanner" class="hidden bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3.5 flex items-start gap-3 shadow-md">
+            <div class="p-2 bg-amber-500/20 text-amber-400 rounded-xl mt-0.5">
+                <i class="fa-solid fa-fill-drip text-sm"></i>
+            </div>
+            <div class="flex-1 text-xs">
+                <div class="font-bold text-amber-300">Partial Top-Up Active</div>
+                <div class="text-amber-200/80 mt-0.5" id="pendingPartialText">
+                    Accumulating intermediate gallons. Exact tank MPG will be calculated automatically on your next Full Tank!
+                </div>
+            </div>
+        </div>
+
+        <!-- SID Intelligence Card -->
+        <div id="insightCard" class="bg-slate-900/90 border border-emerald-500/30 rounded-2xl p-4 space-y-2 shadow-lg">
+            <div class="flex items-center gap-2 text-xs font-bold text-emerald-400">
+                <i class="fa-solid fa-brain"></i> Saab Information Display (SID) Intelligence
+            </div>
+            <p id="insightText" class="text-xs text-slate-300 leading-relaxed">
+                Tap <strong class="text-emerald-400">+ Log Fill-Up</strong> above to record your odometer, gas pump numbers, and average speed (MPH).
+            </p>
+        </div>
+
+        <!-- History Log Section -->
+        <section class="space-y-3">
+            <div class="flex items-center justify-between px-1">
+                <h2 class="text-sm font-bold text-slate-100 flex items-center gap-2">
+                    <i class="fa-solid fa-clock-rotate-left text-emerald-400"></i> Telemetry Logs
+                </h2>
+                <span id="historyCount" class="text-xs text-slate-400">0 logs</span>
+            </div>
+
+            <!-- List Container -->
+            <div id="historyList" class="space-y-3">
+                <!-- Dynamically populated entries -->
+            </div>
+        </section>
+    </main>
+
+    <!-- Floating Action Button for Easy Thumb Access on Mobile -->
+    <div class="fixed bottom-5 right-5 z-20">
+        <button id="btnOpenWizardFAB" type="button" class="w-14 h-14 rounded-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white shadow-2xl flex items-center justify-center text-xl transition transform active:scale-95 border border-emerald-400/40 cursor-pointer">
+            <i class="fa-solid fa-plus"></i>
+        </button>
+    </div>
+
+    <!-- 3-STEP GUIDED ENTRY WIZARD MODAL -->
+    <div id="wizardModal" class="modal-overlay fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-3 overflow-y-auto">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl my-auto flex flex-col">
+            
+            <!-- Wizard Header -->
+            <div class="px-5 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-sm">
+                        <span id="modalStepNum">1</span>/3
+                    </div>
+                    <div>
+                        <h3 id="modalStepTitle" class="text-sm font-bold text-slate-100">Step 1: Odometer & Trip Meter</h3>
+                        <p class="text-[11px] text-slate-400">Photo-First Guided Telemetry Input</p>
+                    </div>
+                </div>
+                <button id="btnCloseWizardHeader" type="button" class="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-sm cursor-pointer">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Wizard Step Progress Line -->
+            <div class="w-full bg-slate-950 h-1.5 flex">
+                <div id="progressBarStep1" class="h-full bg-emerald-500 transition-all duration-300 w-1/3"></div>
+                <div id="progressBarStep2" class="h-full bg-slate-800 transition-all duration-300 w-1/3"></div>
+                <div id="progressBarStep3" class="h-full bg-slate-800 transition-all duration-300 w-1/3"></div>
+            </div>
+
+            <!-- Wizard Content Form -->
+            <form id="wizardForm" onsubmit="return false;" class="p-5 space-y-4">
+                
+                <!-- STEP 1: Dashboard (Odometer & Trip) -->
+                <div id="wizardStep1" class="space-y-4">
+                    <div class="bg-slate-950 p-3.5 rounded-2xl border border-slate-800 text-xs text-slate-300 flex items-center gap-3">
+                        <i class="fa-solid fa-gauge text-xl text-emerald-400 flex-shrink-0"></i>
+                        <div>
+                            <strong class="text-slate-100">Snap Dashboard Cluster</strong>
+                            <p class="text-slate-400 text-[11px] mt-0.5">Include total odometer & trip meter reading. OCR will attempt to scan numbers automatically.</p>
+                        </div>
+                    </div>
+
+                    <!-- Photo Attachment Step 1 -->
+                    <div class="space-y-2">
+                        <label class="block text-xs font-semibold text-slate-400">1. Dashboard Photo (Odometer & Trip)</label>
+                        <div class="flex items-center gap-3">
+                            <label class="flex-1 cursor-pointer bg-slate-950 border border-dashed border-slate-700 hover:border-emerald-500 rounded-2xl p-3 text-center text-xs text-slate-400 hover:text-emerald-400 transition flex flex-col items-center justify-center gap-1.5">
+                                <i class="fa-solid fa-camera text-xl text-emerald-400"></i>
+                                <span id="labelPhotoOdo" class="font-medium text-slate-200">Take or Upload Odometer Photo</span>
+                                <input type="file" id="fileOdo" accept="image/*" capture="environment" class="hidden">
+                            </label>
+                            <div id="previewContainerOdo" class="hidden relative">
+                                <img id="previewOdo" src="" class="w-20 h-20 rounded-xl object-cover border-2 border-emerald-500/60 shadow">
+                                <button type="button" id="btnClearOdo" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center shadow">
+                                    &times;
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- OCR Status Step 1 -->
+                    <div id="ocrStatusOdo" class="hidden text-xs p-2.5 rounded-xl border flex items-center gap-2"></div>
+
+                    <!-- Input Fields Step 1 -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-xs font-semibold text-slate-400">Odometer (mi)</label>
+                                <span id="badgeOdoAuto" class="hidden text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">OCR</span>
+                            </div>
+                            <input type="number" step="any" inputmode="decimal" id="inputOdometer" placeholder="e.g. 114350" required
+                                class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-emerald-500">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-xs font-semibold text-slate-400">Trip Meter (mi)</label>
+                                <span id="badgeTripAuto" class="hidden text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">OCR</span>
+                            </div>
+                            <input type="number" step="any" inputmode="decimal" id="inputTrip" placeholder="e.g. 340.5" required
+                                class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-emerald-500">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 mb-1">Log Date</label>
+                        <input type="date" id="inputDate" required
+                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-emerald-500">
+                    </div>
+
+                    <button type="button" id="btnNextStep1" class="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-98 font-bold text-xs text-white transition flex items-center justify-center gap-2 cursor-pointer">
+                        <span>Next: Gas Pump & Fuel Specs</span> <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+
+                <!-- STEP 2: Gas Pump & Fuel -->
+                <div id="wizardStep2" class="space-y-4 hidden">
+                    <div class="bg-slate-950 p-3.5 rounded-2xl border border-slate-800 text-xs text-slate-300 flex items-center gap-3">
+                        <i class="fa-solid fa-gas-pump text-xl text-emerald-400 flex-shrink-0"></i>
+                        <div>
+                            <strong class="text-slate-100">Snap Pump Screen or Receipt</strong>
+                            <p class="text-slate-400 text-[11px] mt-0.5">Record total gallons pumped and dollars spent. OCR auto-extracts values.</p>
+                        </div>
+                    </div>
+
+                    <!-- Photo Attachment Step 2 -->
+                    <div class="space-y-2">
+                        <label class="block text-xs font-semibold text-slate-400">2. Gas Pump / Receipt Photo</label>
+                        <div class="flex items-center gap-3">
+                            <label class="flex-1 cursor-pointer bg-slate-950 border border-dashed border-slate-700 hover:border-emerald-500 rounded-2xl p-3 text-center text-xs text-slate-400 hover:text-emerald-400 transition flex flex-col items-center justify-center gap-1.5">
+                                <i class="fa-solid fa-camera text-xl text-emerald-400"></i>
+                                <span id="labelPhotoPump" class="font-medium text-slate-200">Take or Upload Pump Photo</span>
+                                <input type="file" id="filePump" accept="image/*" capture="environment" class="hidden">
+                            </label>
+                            <div id="previewContainerPump" class="hidden relative">
+                                <img id="previewPump" src="" class="w-20 h-20 rounded-xl object-cover border-2 border-emerald-500/60 shadow">
+                                <button type="button" id="btnClearPump" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center shadow">
+                                    &times;
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- OCR Status Step 2 -->
+                    <div id="ocrStatusPump" class="hidden text-xs p-2.5 rounded-xl border flex items-center gap-2"></div>
+
+                    <!-- Fill Type Toggle -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 mb-1">Fill Type</label>
+                        <div class="grid grid-cols-2 gap-2 p-1 bg-slate-950 rounded-xl border border-slate-800">
+                            <button type="button" id="btnFullTank" class="py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 bg-emerald-600 text-white shadow cursor-pointer">
+                                <i class="fa-solid fa-gas-pump"></i> Full Tank (To Cap)
+                            </button>
+                            <button type="button" id="btnPartialTank" class="py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 bg-slate-800 text-slate-400 hover:text-slate-200 cursor-pointer">
+                                <i class="fa-solid fa-fill-drip"></i> Partial Top-Up
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Input Fields Step 2 -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-xs font-semibold text-slate-400">Gallons Pumped</label>
+                                <span id="badgeGallonsAuto" class="hidden text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">OCR</span>
+                            </div>
+                            <input type="number" step="any" inputmode="decimal" id="inputGallons" placeholder="e.g. 14.85" required
+                                class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-emerald-500">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-xs font-semibold text-slate-400">Total Cost ($)</label>
+                                <span id="badgeCostAuto" class="hidden text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">OCR</span>
+                            </div>
+                            <input type="number" step="any" inputmode="decimal" id="inputCost" placeholder="e.g. 45.50" required
+                                class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-emerald-500">
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <button type="button" id="btnBackStep2" class="w-1/3 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 font-bold text-xs text-slate-300 transition flex items-center justify-center gap-1 cursor-pointer">
+                            <i class="fa-solid fa-arrow-left"></i> Back
+                        </button>
+                        <button type="button" id="btnNextStep2" class="w-2/3 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-xs text-white transition flex items-center justify-center gap-2 cursor-pointer">
+                            <span>Next: Avg Speed (MPH)</span> <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- STEP 3: Average Speed (SID Display) & Save -->
+                <div id="wizardStep3" class="space-y-4 hidden">
+                    <div class="bg-slate-950 p-3.5 rounded-2xl border border-slate-800 text-xs text-slate-300 flex items-center gap-3">
+                        <i class="fa-solid fa-tachometer-alt text-xl text-cyan-400 flex-shrink-0"></i>
+                        <div>
+                            <strong class="text-slate-100">Snap SID Average Speed Display</strong>
+                            <p class="text-slate-400 text-[11px] mt-0.5">Record your Saab Information Display (SID) AVG MPH. OCR auto-scans speed.</p>
+                        </div>
+                    </div>
+
+                    <!-- Photo Attachment Step 3 -->
+                    <div class="space-y-2">
+                        <label class="block text-xs font-semibold text-slate-400">3. Average Speed (SID Display) Photo</label>
+                        <div class="flex items-center gap-3">
+                            <label class="flex-1 cursor-pointer bg-slate-950 border border-dashed border-slate-700 hover:border-emerald-500 rounded-2xl p-3 text-center text-xs text-slate-400 hover:text-emerald-400 transition flex flex-col items-center justify-center gap-1.5">
+                                <i class="fa-solid fa-camera text-xl text-cyan-400"></i>
+                                <span id="labelPhotoSpeed" class="font-medium text-slate-200">Take or Upload SID Speed Photo</span>
+                                <input type="file" id="fileSpeed" accept="image/*" capture="environment" class="hidden">
+                            </label>
+                            <div id="previewContainerSpeed" class="hidden relative">
+                                <img id="previewSpeed" src="" class="w-20 h-20 rounded-xl object-cover border-2 border-cyan-500/60 shadow">
+                                <button type="button" id="btnClearSpeed" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center shadow">
+                                    &times;
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- OCR Status Step 3 -->
+                    <div id="ocrStatusSpeed" class="hidden text-xs p-2.5 rounded-xl border flex items-center gap-2"></div>
+
+                    <!-- Input Fields Step 3 -->
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-xs font-semibold text-slate-400">Average Speed (AVG MPH)</label>
+                            <span id="badgeSpeedAuto" class="hidden text-[10px] text-cyan-400 font-bold bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/20">OCR</span>
+                        </div>
+                        <input type="number" step="any" inputmode="decimal" id="inputAvgSpeed" placeholder="e.g. 34.5" required
+                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-cyan-500">
+                    </div>
+
+                    <!-- Driving Profile Classifier Badge Preview -->
+                    <div id="profileDetectorPreview" class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs flex items-center justify-between">
+                        <span class="text-slate-400">Driving Profile Classifier:</span>
+                        <span id="profileDetectorTag" class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-800 text-slate-300">
+                            Enter Speed Above
+                        </span>
+                    </div>
+
+                    <!-- Optional Notes -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 mb-1">Notes (Optional)</label>
+                        <input type="text" id="inputNotes" placeholder="e.g. Highway cruise, 93 Octane fuel"
+                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-emerald-500">
+                    </div>
+
+                    <div class="flex items-center gap-2 pt-2">
+                        <button type="button" id="btnBackStep3" class="w-1/3 py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 font-bold text-xs text-slate-300 transition flex items-center justify-center gap-1 cursor-pointer">
+                            <i class="fa-solid fa-arrow-left"></i> Back
+                        </button>
+                        <button type="button" id="btnSaveTelemetry" class="w-2/3 py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 font-bold text-xs text-white shadow-lg shadow-emerald-950/60 transition flex items-center justify-center gap-2 cursor-pointer">
+                            <i class="fa-solid fa-check-circle text-base"></i> Save Telemetry Entry
+                        </button>
+                    </div>
+                </div>
+
+            </form>
+        </div>
+    </div>
+
+    <!-- LIGHTBOX PHOTO VIEWER MODAL -->
+    <div id="imageLightbox" class="modal-overlay fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex flex-col items-center justify-center p-4">
+        <div class="relative max-w-lg w-full bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden p-2 shadow-2xl">
+            <div class="p-2 flex justify-between items-center border-b border-slate-800">
+                <span id="lightboxTitle" class="text-xs font-bold text-slate-300">Telemetry Photo</span>
+                <button id="btnCloseLightbox" type="button" class="text-slate-400 hover:text-white px-2 py-1 text-xs cursor-pointer">Close &times;</button>
+            </div>
+            <img id="lightboxImg" src="" class="w-full h-auto max-h-[75vh] object-contain rounded-2xl mt-2">
+        </div>
+    </div>
+
+    <!-- CUSTOM CONFIRMATION MODAL (No native confirm()) -->
+    <div id="confirmModal" class="modal-overlay fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
+            <div class="flex items-center gap-3 text-amber-400">
+                <i class="fa-solid fa-circle-exclamation text-2xl"></i>
+                <h3 id="confirmTitle" class="text-sm font-bold text-slate-100">Confirm Action</h3>
+            </div>
+            <p id="confirmMessage" class="text-xs text-slate-300">Are you sure you want to proceed?</p>
+            <div class="flex items-center justify-end gap-2 pt-2">
+                <button id="btnConfirmCancel" type="button" class="px-3.5 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold hover:bg-slate-700 cursor-pointer">Cancel</button>
+                <button id="btnConfirmAction" type="button" class="px-3.5 py-2 rounded-xl bg-red-600 text-white text-xs font-bold hover:bg-red-500 cursor-pointer">Proceed</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION CONTAINER -->
+    <div id="toastContainer" class="fixed top-4 right-4 z-50 space-y-2 pointer-events-none"></div>
+
+    <!-- APP ENGINE LOGIC -->
+    <script>
+        // Data State & Seed
+        const INITIAL_SAAB_SEED = [
+            {
+                id: 'log-baseline-1',
+                date: '2026-03-20',
+                fillType: 'full',
+                odometer: 114000,
+                tripMiles: 340.0,
+                gallons: 14.80,
+                totalCost: 48.00,
+                avgSpeed: 28.5,
+                notes: 'Baseline Saab 9-3 full tank specs test',
+                photos: {}
+            },
+            {
+                id: 'log-baseline-2',
+                date: '2026-03-25',
+                fillType: 'partial',
+                odometer: 114060,
+                tripMiles: 60.0,
+                gallons: 3.10,
+                totalCost: 10.00,
+                avgSpeed: 25.0,
+                notes: 'Added $10 (~3.1 gal, ~60 miles) top-up note',
+                photos: {}
+            }
+        ];
+
+        let entries = [];
+        let wizardCurrentStep = 1;
+        let wizardFillType = 'full';
+        let wizardPhotos = { odo: null, pump: null, speed: null };
+        let pendingConfirmCallback = null;
+
+        // Initialize App on DOM Ready
+        document.addEventListener('DOMContentLoaded', () => {
+            loadStorage();
+            bindEventListeners();
+            recalculateAndRender();
+        });
+
+        // Safe Storage Loader
+        function loadStorage() {
+            try {
+                const saved = localStorage.getItem('saab_93_telemetry_logs');
+                if (saved) {
+                    entries = JSON.parse(saved);
+                } else {
+                    entries = [...INITIAL_SAAB_SEED];
+                    saveStorage();
+                }
+            } catch (e) {
+                console.warn('localStorage not accessible, using memory fallback:', e);
+                entries = [...INITIAL_SAAB_SEED];
+            }
+        }
+
+        function saveStorage() {
+            try {
+                localStorage.setItem('saab_93_telemetry_logs', JSON.stringify(entries));
+            } catch (e) {
+                console.warn('Failed to write to localStorage:', e);
+            }
+        }
+
+        // DOM Event Listeners Binder
+        function bindEventListeners() {
+            // Open Wizard Buttons
+            const topBtn = document.getElementById('btnOpenWizardTop');
+            const fabBtn = document.getElementById('btnOpenWizardFAB');
+            if (topBtn) topBtn.addEventListener('click', openWizardModal);
+            if (fabBtn) fabBtn.addEventListener('click', openWizardModal);
+
+            // Close Wizard Button
+            const closeBtn = document.getElementById('btnCloseWizardHeader');
+            if (closeBtn) closeBtn.addEventListener('click', closeWizardModal);
+
+            // Wizard Step Navigation
+            document.getElementById('btnNextStep1').addEventListener('click', () => goToStep(2));
+            document.getElementById('btnBackStep2').addEventListener('click', () => goToStep(1));
+            document.getElementById('btnNextStep2').addEventListener('click', () => goToStep(3));
+            document.getElementById('btnBackStep3').addEventListener('click', () => goToStep(2));
+            document.getElementById('btnSaveTelemetry').addEventListener('click', handleWizardSubmit);
+
+            // Fill Type Toggle Buttons
+            document.getElementById('btnFullTank').addEventListener('click', () => setWizardFillType('full'));
+            document.getElementById('btnPartialTank').addEventListener('click', () => setWizardFillType('partial'));
+
+            // File Upload Inputs
+            document.getElementById('fileOdo').addEventListener('change', (e) => handlePhotoStep(e, 'odo'));
+            document.getElementById('filePump').addEventListener('change', (e) => handlePhotoStep(e, 'pump'));
+            document.getElementById('fileSpeed').addEventListener('change', (e) => handlePhotoStep(e, 'speed'));
+
+            // Clear Photo Buttons
+            document.getElementById('btnClearOdo').addEventListener('click', () => clearPhotoStep('odo'));
+            document.getElementById('btnClearPump').addEventListener('click', () => clearPhotoStep('pump'));
+            document.getElementById('btnClearSpeed').addEventListener('click', () => clearPhotoStep('speed'));
+
+            // Speed Input Live Preview
+            document.getElementById('inputAvgSpeed').addEventListener('input', (e) => updateProfilePreview(e.target.value));
+
+            // Export CSV & Reset Buttons
+            document.getElementById('btnExportCSV').addEventListener('click', exportCSV);
+            document.getElementById('btnResetDemo').addEventListener('click', () => {
+                showCustomConfirm("Reset Telemetry Data", "Reset all logs back to initial Saab 9-3 baseline specs?", () => {
+                    entries = [...INITIAL_SAAB_SEED];
+                    saveStorage();
+                    recalculateAndRender();
+                    showToast("Reset to baseline logs successfully.");
+                });
+            });
+
+            // Lightbox Close
+            document.getElementById('btnCloseLightbox').addEventListener('click', closeLightbox);
+            document.getElementById('imageLightbox').addEventListener('click', (e) => {
+                if (e.target === document.getElementById('imageLightbox')) closeLightbox();
+            });
+
+            // Confirm Dialog Buttons
+            document.getElementById('btnConfirmCancel').addEventListener('click', hideCustomConfirm);
+            document.getElementById('btnConfirmAction').addEventListener('click', () => {
+                if (pendingConfirmCallback) pendingConfirmCallback();
+                hideCustomConfirm();
+            });
+        }
+
+        // Wizard Modal Open / Close
+        function openWizardModal() {
+            wizardCurrentStep = 1;
+            setWizardFillType('full');
+            document.getElementById('wizardForm').reset();
+            document.getElementById('inputDate').value = new Date().toISOString().split('T')[0];
+            
+            wizardPhotos = { odo: null, pump: null, speed: null };
+            clearPhotoStep('odo');
+            clearPhotoStep('pump');
+            clearPhotoStep('speed');
+            
+            updateWizardStepUI();
+            const modal = document.getElementById('wizardModal');
+            modal.classList.add('active');
+        }
+
+        function closeWizardModal() {
+            const modal = document.getElementById('wizardModal');
+            modal.classList.remove('active');
+        }
+
+        function goToStep(stepNum) {
+            // Basic Step Validation
+            if (stepNum === 2) {
+                const odo = parseFloat(document.getElementById('inputOdometer').value);
+                const trip = parseFloat(document.getElementById('inputTrip').value);
+                if (isNaN(odo) || isNaN(trip)) {
+                    showToast("Please enter valid Odometer and Trip meter values.", "warning");
+                    return;
+                }
+            } else if (stepNum === 3) {
+                const gal = parseFloat(document.getElementById('inputGallons').value);
+                const cost = parseFloat(document.getElementById('inputCost').value);
+                if (isNaN(gal) || isNaN(cost)) {
+                    showToast("Please enter valid Gallons and Cost values.", "warning");
+                    return;
+                }
+            }
+
+            wizardCurrentStep = stepNum;
+            updateWizardStepUI();
+        }
+
+        function updateWizardStepUI() {
+            document.getElementById('modalStepNum').innerText = wizardCurrentStep;
+            
+            const titles = [
+                "Step 1: Odometer & Trip Meter",
+                "Step 2: Gas Pump & Fuel Specs",
+                "Step 3: Average Speed & Review"
+            ];
+            document.getElementById('modalStepTitle').innerText = titles[wizardCurrentStep - 1];
+
+            document.getElementById('wizardStep1').classList.toggle('hidden', wizardCurrentStep !== 1);
+            document.getElementById('wizardStep2').classList.toggle('hidden', wizardCurrentStep !== 2);
+            document.getElementById('wizardStep3').classList.toggle('hidden', wizardCurrentStep !== 3);
+
+            document.getElementById('progressBarStep1').className = `h-full transition-all duration-300 ${wizardCurrentStep >= 1 ? 'bg-emerald-500 w-1/3' : 'bg-slate-800 w-1/3'}`;
+            document.getElementById('progressBarStep2').className = `h-full transition-all duration-300 ${wizardCurrentStep >= 2 ? 'bg-emerald-500 w-1/3' : 'bg-slate-800 w-1/3'}`;
+            document.getElementById('progressBarStep3').className = `h-full transition-all duration-300 ${wizardCurrentStep >= 3 ? 'bg-emerald-500 w-1/3' : 'bg-slate-800 w-1/3'}`;
+        }
+
+        function setWizardFillType(type) {
+            wizardFillType = type;
+            const btnFull = document.getElementById('btnFullTank');
+            const btnPart = document.getElementById('btnPartialTank');
+
+            if (type === 'full') {
+                btnFull.className = "py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 bg-emerald-600 text-white shadow cursor-pointer";
+                btnPart.className = "py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 bg-slate-800 text-slate-400 hover:text-slate-200 cursor-pointer";
+            } else {
+                btnPart.className = "py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 bg-amber-600 text-white shadow cursor-pointer";
+                btnFull.className = "py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 bg-slate-800 text-slate-400 hover:text-slate-200 cursor-pointer";
+            }
+        }
+
+        // Photo Upload & Compression
+        function handlePhotoStep(event, stepKey) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const img = new Image();
+                img.onload = function () {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    const maxDim = 900;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > maxDim) {
+                            height *= maxDim / width;
+                            width = maxDim;
+                        }
+                    } else {
+                        if (height > maxDim) {
+                            width *= maxDim / height;
+                            height = maxDim;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    ctx.drawImage(img, 0, 0, width, height);
+                    const base64 = canvas.toDataURL('image/jpeg', 0.75);
+
+                    wizardPhotos[stepKey] = base64;
+
+                    if (stepKey === 'odo') {
+                        document.getElementById('previewOdo').src = base64;
+                        document.getElementById('previewContainerOdo').classList.remove('hidden');
+                        document.getElementById('labelPhotoOdo').innerText = "Dashboard Photo Attached";
+                    } else if (stepKey === 'pump') {
+                        document.getElementById('previewPump').src = base64;
+                        document.getElementById('previewContainerPump').classList.remove('hidden');
+                        document.getElementById('labelPhotoPump').innerText = "Pump Photo Attached";
+                    } else if (stepKey === 'speed') {
+                        document.getElementById('previewSpeed').src = base64;
+                        document.getElementById('previewContainerSpeed').classList.remove('hidden');
+                        document.getElementById('labelPhotoSpeed').innerText = "SID Speed Photo Attached";
+                    }
+
+                    // Run Client-Side OCR non-blockingly
+                    runPhotoOCR(base64, stepKey);
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function clearPhotoStep(stepKey) {
+            wizardPhotos[stepKey] = null;
+            if (stepKey === 'odo') {
+                document.getElementById('previewContainerOdo').classList.add('hidden');
+                document.getElementById('labelPhotoOdo').innerText = "Take or Upload Odometer Photo";
+                document.getElementById('ocrStatusOdo').classList.add('hidden');
+                document.getElementById('badgeOdoAuto').classList.add('hidden');
+                document.getElementById('badgeTripAuto').classList.add('hidden');
+            } else if (stepKey === 'pump') {
+                document.getElementById('previewContainerPump').classList.add('hidden');
+                document.getElementById('labelPhotoPump').innerText = "Take or Upload Pump Photo";
+                document.getElementById('ocrStatusPump').classList.add('hidden');
+                document.getElementById('badgeGallonsAuto').classList.add('hidden');
+                document.getElementById('badgeCostAuto').classList.add('hidden');
+            } else if (stepKey === 'speed') {
+                document.getElementById('previewContainerSpeed').classList.add('hidden');
+                document.getElementById('labelPhotoSpeed').innerText = "Take or Upload SID Speed Photo";
+                document.getElementById('ocrStatusSpeed').classList.add('hidden');
+                document.getElementById('badgeSpeedAuto').classList.add('hidden');
+            }
+        }
+
+        // Tesseract.js Client OCR Engine
+        async function runPhotoOCR(base64Image, stepKey) {
+            const statusElemId = stepKey === 'odo' ? 'ocrStatusOdo' : (stepKey === 'pump' ? 'ocrStatusPump' : 'ocrStatusSpeed');
+            const statusElem = document.getElementById(statusElemId);
+            
+            statusElem.classList.remove('hidden');
+            statusElem.className = "text-xs p-2.5 rounded-xl border flex items-center gap-2 bg-slate-900 border-cyan-500/40 text-cyan-300 animate-pulse";
+            statusElem.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> <span>Scanning photo for numbers (OCR)...</span>`;
+
+            try {
+                if (typeof Tesseract === 'undefined') {
+                    throw new Error('Tesseract unavailable');
+                }
+
+                const result = await Tesseract.recognize(base64Image, 'eng', {
+                    logger: m => {
+                        if (m.status === 'recognizing text') {
+                            const pct = Math.round((m.progress || 0) * 100);
+                            statusElem.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin text-cyan-400"></i> <span>Scanning numbers (${pct}%)...</span>`;
+                        }
+                    }
+                });
+
+                const text = result.data.text || '';
+                parseOCRResults(text, stepKey, statusElem);
+
+            } catch (err) {
+                console.warn('OCR engine notice:', err);
+                statusElem.className = "text-xs p-2.5 rounded-xl border flex items-center justify-between bg-slate-900 border-slate-700 text-slate-300";
+                statusElem.innerHTML = `<span><i class="fa-solid fa-pen"></i> OCR Scanner ready. Type numbers directly into fields.</span>`;
+            }
+        }
+
+        function parseOCRResults(rawText, stepKey, statusElem) {
+            const cleanText = rawText.toUpperCase().replace(/,/g, '');
+            const matches = cleanText.match(/\d+(\.\d+)?/g) || [];
+            const numbers = matches.map(n => parseFloat(n)).filter(n => !isNaN(n));
+
+            if (stepKey === 'odo') {
+                const odoCandidate = numbers.find(n => n >= 1000 && n <= 999999);
+                const tripCandidate = numbers.find(n => n >= 0.1 && n < 1000 && n !== odoCandidate);
+
+                let detected = [];
+                if (odoCandidate) {
+                    document.getElementById('inputOdometer').value = odoCandidate;
+                    document.getElementById('badgeOdoAuto').classList.remove('hidden');
+                    detected.push(`Odo: <strong>${odoCandidate}</strong>`);
+                }
+                if (tripCandidate) {
+                    document.getElementById('inputTrip').value = tripCandidate;
+                    document.getElementById('badgeTripAuto').classList.remove('hidden');
+                    detected.push(`Trip: <strong>${tripCandidate}</strong>`);
+                }
+
+                if (detected.length > 0) {
+                    statusElem.className = "text-xs p-2.5 rounded-xl border flex items-center justify-between bg-emerald-500/10 border-emerald-500/30 text-emerald-300";
+                    statusElem.innerHTML = `<div class="flex items-center gap-1.5"><i class="fa-solid fa-wand-magic-sparkles text-emerald-400"></i> Auto-filled ${detected.join(' & ')}</div>`;
+                } else {
+                    statusElem.className = "text-xs p-2.5 rounded-xl border flex items-center justify-between bg-slate-900 border-slate-700 text-slate-300";
+                    statusElem.innerHTML = `<span><i class="fa-solid fa-pen text-slate-400"></i> Enter gauge readings in inputs below.</span>`;
+                }
+            } else if (stepKey === 'pump') {
+                const costMatch = cleanText.match(/\$?\s*(\d{1,3}\.\d{2})/);
+                const galMatch = cleanText.match(/(\d{1,2}\.\d{2,3})\s*(GAL|G|GALLON)?/);
+
+                let costCandidate = costMatch ? parseFloat(costMatch[1]) : null;
+                let galCandidate = galMatch ? parseFloat(galMatch[1]) : null;
+
+                const decimals = numbers.filter(n => n.toString().includes('.'));
+                if (!costCandidate && decimals.length > 0) costCandidate = Math.max(...decimals.filter(n => n >= 5 && n <= 200));
+                if (!galCandidate && decimals.length > 0) galCandidate = decimals.find(n => n >= 1.0 && n <= 25.0 && n !== costCandidate);
+
+                let detected = [];
+                if (galCandidate && isFinite(galCandidate)) {
+                    document.getElementById('inputGallons').value = galCandidate;
+                    document.getElementById('badgeGallonsAuto').classList.remove('hidden');
+                    detected.push(`Gal: <strong>${galCandidate}</strong>`);
+                }
+                if (costCandidate && isFinite(costCandidate)) {
+                    document.getElementById('inputCost').value = costCandidate.toFixed(2);
+                    document.getElementById('badgeCostAuto').classList.remove('hidden');
+                    detected.push(`Cost: <strong>$${costCandidate.toFixed(2)}</strong>`);
+                }
+
+                if (detected.length > 0) {
+                    statusElem.className = "text-xs p-2.5 rounded-xl border flex items-center justify-between bg-emerald-500/10 border-emerald-500/30 text-emerald-300";
+                    statusElem.innerHTML = `<div class="flex items-center gap-1.5"><i class="fa-solid fa-wand-magic-sparkles text-emerald-400"></i> Auto-filled ${detected.join(' & ')}</div>`;
+                } else {
+                    statusElem.className = "text-xs p-2.5 rounded-xl border flex items-center justify-between bg-slate-900 border-slate-700 text-slate-300";
+                    statusElem.innerHTML = `<span><i class="fa-solid fa-pen text-slate-400"></i> Enter pump readings in inputs below.</span>`;
+                }
+            } else if (stepKey === 'speed') {
+                const speedCandidate = numbers.find(n => n >= 10 && n <= 95);
+                if (speedCandidate) {
+                    document.getElementById('inputAvgSpeed').value = speedCandidate;
+                    document.getElementById('badgeSpeedAuto').classList.remove('hidden');
+                    updateProfilePreview(speedCandidate);
+
+                    statusElem.className = "text-xs p-2.5 rounded-xl border flex items-center justify-between bg-cyan-500/10 border-cyan-500/30 text-cyan-300";
+                    statusElem.innerHTML = `<div class="flex items-center gap-1.5"><i class="fa-solid fa-wand-magic-sparkles text-cyan-400"></i> Auto-filled Speed: <strong>${speedCandidate} MPH</strong></div>`;
+                } else {
+                    statusElem.className = "text-xs p-2.5 rounded-xl border flex items-center justify-between bg-slate-900 border-slate-700 text-slate-300";
+                    statusElem.innerHTML = `<span><i class="fa-solid fa-pen text-slate-400"></i> Enter average speed in MPH below.</span>`;
+                }
+            }
+        }
+
+        // Live Driving Profile Preview
+        function updateProfilePreview(val) {
+            const mph = parseFloat(val);
+            const tag = document.getElementById('profileDetectorTag');
+            if (isNaN(mph) || mph <= 0) {
+                tag.className = "px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-800 text-slate-300";
+                tag.innerText = "Enter Speed Above";
+                return;
+            }
+
+            if (mph < 24) {
+                tag.className = "px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30";
+                tag.innerText = "🌆 City Stop & Go (<24 mph)";
+            } else if (mph <= 38) {
+                tag.className = "px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+                tag.innerText = "⚖️ Mixed Suburban (24-38 mph)";
+            } else {
+                tag.className = "px-2.5 py-1 rounded-full text-[11px] font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30";
+                tag.innerText = "🚀 Highway Cruise (>38 mph)";
+            }
+        }
+
+        // Save Telemetry Entry
+        function handleWizardSubmit() {
+            const date = document.getElementById('inputDate').value;
+            const odo = parseFloat(document.getElementById('inputOdometer').value);
+            const trip = parseFloat(document.getElementById('inputTrip').value);
+            const gallons = parseFloat(document.getElementById('inputGallons').value);
+            const cost = parseFloat(document.getElementById('inputCost').value);
+            const avgSpeed = parseFloat(document.getElementById('inputAvgSpeed').value);
+            const notes = document.getElementById('inputNotes').value.trim();
+
+            if (isNaN(odo) || isNaN(trip) || isNaN(gallons) || isNaN(cost) || isNaN(avgSpeed)) {
+                showToast("Please fill in all numerical fields.", "warning");
+                return;
+            }
+
+            const newEntry = {
+                id: 'log-' + Date.now(),
+                date: date || new Date().toISOString().split('T')[0],
+                fillType: wizardFillType,
+                odometer: odo,
+                tripMiles: trip,
+                gallons: gallons,
+                totalCost: cost,
+                avgSpeed: avgSpeed,
+                notes: notes,
+                photos: { ...wizardPhotos }
+            };
+
+            entries.push(newEntry);
+            saveStorage();
+            recalculateAndRender();
+            closeWizardModal();
+            showToast("Telemetry log saved successfully!");
+        }
+
+        // Calculations & UI Rendering
+        function recalculateAndRender() {
+            entries.sort((a, b) => a.odometer - b.odometer || new Date(a.date) - new Date(b.date));
+
+            let accGallons = 0;
+            let accCost = 0;
+            let pendingGallons = 0;
+            let pendingCost = 0;
+
+            let totalSpent = 0;
+            let totalGallons = 0;
+            let lastFullMPG = null;
+            let lastFullCPM = null;
+            let lastAvgSpeed = null;
+
+            entries.forEach((entry, idx) => {
+                totalSpent += entry.totalCost;
+                totalGallons += entry.gallons;
+                if (entry.avgSpeed) lastAvgSpeed = entry.avgSpeed;
+
+                if (entry.fillType === 'partial') {
+                    accGallons += entry.gallons;
+                    accCost += entry.totalCost;
+                    pendingGallons += entry.gallons;
+                    pendingCost += entry.totalCost;
+
+                    entry.calculatedMpg = null;
+                    entry.costPerMile = null;
+                } else if (entry.fillType === 'full') {
+                    const tankGallons = entry.gallons + accGallons;
+                    const tankCost = entry.totalCost + accCost;
+
+                    let miles = entry.tripMiles;
+                    if (!miles || miles <= 0) {
+                        if (idx > 0) miles = entry.odometer - entries[idx - 1].odometer;
+                    }
+
+                    if (miles > 0 && tankGallons > 0) {
+                        const mpg = miles / tankGallons;
+                        const cpm = tankCost / miles;
+
+                        entry.calculatedMpg = mpg;
+                        entry.costPerMile = cpm;
+
+                        lastFullMPG = mpg;
+                        lastFullCPM = cpm;
+                    } else {
+                        entry.calculatedMpg = null;
+                        entry.costPerMile = null;
+                    }
+
+                    accGallons = 0;
+                    accCost = 0;
+                    pendingGallons = 0;
+                    pendingCost = 0;
+                }
+            });
+
+            // Update Header & Dashboard Stat Cards
+            const statLastMPG = document.getElementById('statLastMPG');
+            const mpgBadge = document.getElementById('mpgBadge');
+            const mpgCompare = document.getElementById('mpgBenchmarkCompare');
+
+            if (lastFullMPG !== null) {
+                statLastMPG.innerText = lastFullMPG.toFixed(1);
+                if (lastFullMPG >= 23.0) {
+                    mpgBadge.className = "text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30";
+                    mpgBadge.innerText = "High Eff.";
+                    mpgCompare.innerText = "Above Combined Target (22-23)";
+                } else if (lastFullMPG >= 19.0) {
+                    mpgBadge.className = "text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-bold border border-amber-500/30";
+                    mpgBadge.innerText = "On Spec";
+                    mpgCompare.innerText = "In Factory Spec Range (19-23)";
+                } else {
+                    mpgBadge.className = "text-[10px] px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 font-bold border border-red-500/30";
+                    mpgBadge.innerText = "Low MPG";
+                    mpgCompare.innerText = "Below City Target (19.0)";
+                }
+            } else {
+                statLastMPG.innerText = "--";
+                mpgBadge.innerText = "--";
+                mpgCompare.innerText = "Target: 22–23 Combined";
+            }
+
+            const statAvgMPH = document.getElementById('statAvgMPH');
+            const statProfileBadge = document.getElementById('statProfileBadge');
+            if (lastAvgSpeed !== null) {
+                statAvgMPH.innerText = lastAvgSpeed.toFixed(1);
+                if (lastAvgSpeed < 24) statProfileBadge.innerText = "Profile: City Stop & Go";
+                else if (lastAvgSpeed <= 38) statProfileBadge.innerText = "Profile: Mixed Suburban";
+                else statProfileBadge.innerText = "Profile: Highway Pace";
+            } else {
+                statAvgMPH.innerText = "--";
+                statProfileBadge.innerText = "Profile: Baseline";
+            }
+
+            const statCPM = document.getElementById('statCostPerMile');
+            const statTotalMiles = document.getElementById('statTotalMiles');
+            let milesCovered = entries.length >= 2 ? (entries[entries.length - 1].odometer - entries[0].odometer) : 0;
+            statCPM.innerText = lastFullCPM !== null ? '$' + lastFullCPM.toFixed(2) : '--';
+            statTotalMiles.innerText = `${milesCovered.toLocaleString()} mi tracked`;
+
+            document.getElementById('statTotalCost').innerText = `$${totalSpent.toFixed(2)}`;
+            document.getElementById('statTotalGallons').innerText = `${totalGallons.toFixed(2)} gal total`;
+
+            // Partial Banner Logic
+            const pendingBanner = document.getElementById('pendingPartialBanner');
+            const pendingText = document.getElementById('pendingPartialText');
+            if (pendingGallons > 0) {
+                pendingBanner.classList.remove('hidden');
+                pendingText.innerText = `Accumulating ${pendingGallons.toFixed(2)} gal ($${pendingCost.toFixed(2)}). True MPG will calculate automatically on your next Full Tank!`;
+            } else {
+                pendingBanner.classList.add('hidden');
+            }
+
+            // Intelligence Text Generator
+            const insightText = document.getElementById('insightText');
+            if (lastFullMPG !== null && lastAvgSpeed !== null) {
+                let targetExpected = lastAvgSpeed < 24 ? "19–20 (City)" : (lastAvgSpeed <= 38 ? "22–23 (Combined)" : "28–29 (Highway)");
+                insightText.innerHTML = `At an average speed of <strong class="text-cyan-400">${lastAvgSpeed.toFixed(1)} MPH</strong>, your Saab 9-3 achieved <strong class="text-emerald-400">${lastFullMPG.toFixed(1)} MPG</strong> (Factory Spec for this pace: ${targetExpected} MPG). Estimated full tank range: <strong class="text-slate-100">${Math.round(lastFullMPG * 16)} miles</strong>.`;
+            }
+
+            renderHistoryList();
+        }
+
+        // Render History Items
+        function renderHistoryList() {
+            const container = document.getElementById('historyList');
+            document.getElementById('historyCount').innerText = `${entries.length} ${entries.length === 1 ? 'log' : 'logs'}`;
+
+            if (entries.length === 0) {
+                container.innerHTML = `
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center text-slate-500">
+                        <i class="fa-solid fa-gauge text-4xl mb-3 text-slate-700"></i>
+                        <p class="text-xs">No telemetry entries recorded yet.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const reversed = [...entries].reverse();
+
+            container.innerHTML = reversed.map(entry => {
+                const isFull = entry.fillType === 'full';
+                const badgeClass = isFull 
+                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                    : "bg-amber-500/10 text-amber-400 border-amber-500/30";
+
+                const mph = entry.avgSpeed || 0;
+                let profileLabel = "Mixed";
+                let profileColor = "bg-slate-800 text-slate-300";
+                if (mph > 0) {
+                    if (mph < 24) { profileLabel = "City"; profileColor = "bg-amber-500/20 text-amber-400 border-amber-500/30"; }
+                    else if (mph <= 38) { profileLabel = "Mixed"; profileColor = "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"; }
+                    else { profileLabel = "Highway"; profileColor = "bg-cyan-500/20 text-cyan-400 border-cyan-500/30"; }
+                }
+
+                const mpgDisplay = isFull && entry.calculatedMpg !== null
+                    ? `<div class="text-right">
+                         <div class="text-xl font-black text-emerald-400">${entry.calculatedMpg.toFixed(1)} <span class="text-xs font-normal text-slate-400">MPG</span></div>
+                         <div class="text-[10px] text-slate-400">$${entry.costPerMile ? entry.costPerMile.toFixed(2) : '--'} / mi</div>
+                       </div>`
+                    : `<div class="text-right">
+                         <span class="text-xs text-amber-400 font-semibold bg-amber-500/10 px-2 py-1 rounded-lg border border-amber-500/20">Pending Full</span>
+                       </div>`;
+
+                const photos = entry.photos || {};
+                const hasPhotos = photos.odo || photos.pump || photos.speed;
+                let photoStrip = '';
+
+                if (hasPhotos) {
+                    photoStrip = `
+                        <div class="flex items-center gap-2 pt-2 border-t border-slate-800/80 mt-2">
+                            <span class="text-[10px] text-slate-400 uppercase font-semibold mr-1">Photos:</span>
+                            ${photos.odo ? `<img src="${photos.odo}" onclick="openLightbox('${photos.odo}', 'Odometer Photo')" class="w-10 h-10 rounded-lg object-cover border border-slate-700 cursor-pointer hover:border-emerald-400">` : ''}
+                            ${photos.pump ? `<img src="${photos.pump}" onclick="openLightbox('${photos.pump}', 'Pump Photo')" class="w-10 h-10 rounded-lg object-cover border border-slate-700 cursor-pointer hover:border-emerald-400">` : ''}
+                            ${photos.speed ? `<img src="${photos.speed}" onclick="openLightbox('${photos.speed}', 'SID Speed Photo')" class="w-10 h-10 rounded-lg object-cover border border-slate-700 cursor-pointer hover:border-cyan-400">` : ''}
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div class="bg-slate-900 border border-slate-800/90 rounded-2xl p-4 shadow-lg">
+                        <div class="flex items-start justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${badgeClass}">
+                                    ${isFull ? 'Full Tank' : 'Partial Top-Up'}
+                                </span>
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border ${profileColor}">
+                                    ${profileLabel} (${entry.avgSpeed || '--'} MPH)
+                                </span>
+                            </div>
+                            ${mpgDisplay}
+                        </div>
+
+                        <div class="text-xs font-medium text-slate-400 mt-2">
+                            <i class="fa-regular fa-calendar text-slate-500 mr-1"></i> ${entry.date}
+                        </div>
+
+                        <div class="grid grid-cols-4 gap-2 my-3 py-2 px-3 bg-slate-950 rounded-xl border border-slate-800/80 text-center">
+                            <div>
+                                <div class="text-[10px] text-slate-400 uppercase">Trip</div>
+                                <div class="text-xs font-bold text-slate-200 mt-0.5">${entry.tripMiles} mi</div>
+                            </div>
+                            <div>
+                                <div class="text-[10px] text-slate-400 uppercase">Gallons</div>
+                                <div class="text-xs font-bold text-slate-200 mt-0.5">${entry.gallons.toFixed(2)}</div>
+                            </div>
+                            <div>
+                                <div class="text-[10px] text-slate-400 uppercase">Cost</div>
+                                <div class="text-xs font-bold text-slate-200 mt-0.5">$${entry.totalCost.toFixed(2)}</div>
+                            </div>
+                            <div>
+                                <div class="text-[10px] text-slate-400 uppercase">Odometer</div>
+                                <div class="text-xs font-bold text-slate-200 mt-0.5">${entry.odometer.toLocaleString()}</div>
+                            </div>
+                        </div>
+
+                        ${entry.notes ? `<p class="text-xs text-slate-300 italic mb-1"><i class="fa-regular fa-note-sticky text-slate-400 mr-1"></i> "${entry.notes}"</p>` : ''}
+
+                        ${photoStrip}
+
+                        <div class="flex items-center justify-end pt-2 border-t border-slate-800/60 mt-2">
+                            <button onclick="promptDeleteEntry('${entry.id}')" class="text-xs text-slate-400 hover:text-red-400 transition flex items-center gap-1 cursor-pointer">
+                                <i class="fa-solid fa-trash-can"></i> Delete
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Custom Confirm Dialog Handler (Replaces native confirm())
+        function showCustomConfirm(title, message, onConfirm) {
+            document.getElementById('confirmTitle').innerText = title;
+            document.getElementById('confirmMessage').innerText = message;
+            pendingConfirmCallback = onConfirm;
+            document.getElementById('confirmModal').classList.add('active');
+        }
+
+        function hideCustomConfirm() {
+            document.getElementById('confirmModal').classList.remove('active');
+            pendingConfirmCallback = null;
+        }
+
+        function promptDeleteEntry(id) {
+            showCustomConfirm("Delete Entry", "Are you sure you want to delete this telemetry log?", () => {
+                entries = entries.filter(e => e.id !== id);
+                saveStorage();
+                recalculateAndRender();
+                showToast("Log entry deleted.");
+            });
+        }
+
+        // Toast Notification System (Replaces native alert())
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            
+            const colorClass = type === 'warning' ? 'bg-amber-600 text-white' : 'bg-emerald-600 text-white';
+            toast.className = `${colorClass} px-4 py-2.5 rounded-xl text-xs font-bold shadow-xl transition-all duration-300 transform translate-y-2 opacity-0 flex items-center gap-2 pointer-events-auto`;
+            toast.innerHTML = `<i class="fa-solid ${type === 'warning' ? 'fa-triangle-exclamation' : 'fa-circle-check'}"></i> <span>${message}</span>`;
+            
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', '-translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // Lightbox Handler
+        function openLightbox(url, title) {
+            document.getElementById('lightboxImg').src = url;
+            document.getElementById('lightboxTitle').innerText = title;
+            document.getElementById('imageLightbox').classList.add('active');
+        }
+
+        function closeLightbox() {
+            document.getElementById('imageLightbox').classList.remove('active');
+        }
+
+        // CSV Exporter
+        function exportCSV() {
+            if (entries.length === 0) {
+                showToast("No telemetry entries to export.", "warning");
+                return;
+            }
+
+            const headers = ['ID', 'Date', 'Fill Type', 'Odometer (mi)', 'Trip (mi)', 'Gallons', 'Total Cost ($)', 'Avg Speed (MPH)', 'Calculated MPG', 'Cost Per Mile ($)', 'Notes'];
+            const rows = entries.map(e => [
+                e.id,
+                e.date,
+                e.fillType,
+                e.odometer,
+                e.tripMiles,
+                e.gallons,
+                e.totalCost,
+                e.avgSpeed || 'N/A',
+                e.calculatedMpg ? e.calculatedMpg.toFixed(2) : 'N/A',
+                e.costPerMile ? e.costPerMile.toFixed(3) : 'N/A',
+                `"${(e.notes || '').replace(/"/g, '""')}"`
+            ]);
+
+            const csvContent = "data:text/csv;charset=utf-8," 
+                + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement('a');
+            link.setAttribute('href', encodedUri);
+            link.setAttribute('download', `saab_93_telemetry_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast("CSV exported successfully.");
+        }
+    </script>
+</body>
+</html>
+```

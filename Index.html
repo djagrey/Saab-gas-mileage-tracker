@@ -1,0 +1,1836 @@
+```html
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saab 9-3 Mileage & Telemetry Manager</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Tesseract.js v5 for OCR -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    
+    <!-- Chart.js for Data Visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        saabGreen: '#00ff66',
+                        saabGreenDark: '#00cc52',
+                        saabAmber: '#ffaa00',
+                        saabDarkBg: '#090b0e',
+                        saabPanelBg: '#12161c',
+                        saabBorder: '#1f2937'
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        /* Custom Saab Night Panel styles */
+        .night-panel {
+            background-color: #06080a !important;
+            color: #00ff66 !important;
+        }
+        .night-panel .card-panel {
+            background-color: #0c1015 !important;
+            border-color: #00ff6644 !important;
+            box-shadow: 0 0 10px rgba(0, 255, 102, 0.05);
+        }
+        .night-panel button.btn-primary {
+            background-color: #00ff66 !important;
+            color: #000000 !important;
+            font-weight: 700;
+        }
+        .night-panel input, .night-panel select, .night-panel textarea {
+            background-color: #040507 !important;
+            color: #00ff66 !important;
+            border-color: #00ff6655 !important;
+        }
+        .night-panel .dim-on-night {
+            opacity: 0.25;
+            transition: opacity 0.3s ease;
+        }
+        .night-panel .dim-on-night:hover {
+            opacity: 0.9;
+        }
+        .night-panel .text-saab-accent {
+            color: #00ff66 !important;
+        }
+        
+        /* Smooth gauge animation */
+        .gauge-bar {
+            transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        /* Modal transitions */
+        .modal-backdrop {
+            background-color: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(4px);
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-full flex flex-col font-sans transition-colors duration-300" id="appBody">
+
+    <!-- TOP NAVIGATION BAR -->
+    <header class="bg-slate-950 border-b border-slate-800 sticky top-0 z-30 shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                
+                <!-- Logo & Vehicle Title -->
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold">
+                        <i data-lucide="gauge" class="w-6 h-6 text-emerald-400"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <h1 class="font-extrabold text-lg tracking-wider text-white">SAAB 9-3 TELEMETRY</h1>
+                            <span class="text-xs bg-emerald-950 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded font-mono">2.0T / Aero</span>
+                        </div>
+                        <p class="text-xs text-slate-400 flex items-center space-x-1">
+                            <span>Grey's Saab 9-3 Logbook</span>
+                            <span class="inline-block w-1 h-1 rounded-full bg-slate-500"></span>
+                            <span id="lastSavedTime" class="text-emerald-400 font-mono">Saved just now</span>
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Action Controls: Night Panel & Quick Actions -->
+                <div class="flex items-center space-x-2 sm:space-x-4">
+                    <!-- Night Panel Toggle Button -->
+                    <button id="nightPanelBtn" onclick="toggleNightPanel()" class="flex items-center space-x-2 px-3 py-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-xs font-bold uppercase tracking-wider shadow-sm">
+                        <i data-lucide="moon" class="w-4 h-4"></i>
+                        <span class="hidden sm:inline">Night Panel</span>
+                    </button>
+
+                    <!-- Export/Import Dropdown Mobile Friendly -->
+                    <div class="relative inline-block text-left">
+                        <button onclick="toggleDataMenu()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg border border-slate-700 flex items-center space-x-1">
+                            <i data-lucide="database" class="w-4 h-4 text-slate-400"></i>
+                            <span class="hidden md:inline">Data</span>
+                            <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+                        </button>
+                        <div id="dataMenuDropdown" class="hidden absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-slate-800 border border-slate-700 ring-1 ring-black ring-opacity-5 z-50">
+                            <div class="py-1">
+                                <button onclick="exportCSV()" class="w-full text-left px-4 py-2 text-xs text-slate-200 hover:bg-slate-700 flex items-center space-x-2">
+                                    <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-400"></i>
+                                    <span>Export CSV</span>
+                                </button>
+                                <button onclick="exportJSON()" class="w-full text-left px-4 py-2 text-xs text-slate-200 hover:bg-slate-700 flex items-center space-x-2">
+                                    <i data-lucide="file-code" class="w-4 h-4 text-blue-400"></i>
+                                    <span>Export JSON</span>
+                                </button>
+                                <label class="w-full text-left px-4 py-2 text-xs text-slate-200 hover:bg-slate-700 flex items-center space-x-2 cursor-pointer">
+                                    <i data-lucide="upload" class="w-4 h-4 text-amber-400"></i>
+                                    <span>Import JSON File</span>
+                                    <input type="file" id="importJsonInput" accept=".json" class="hidden" onchange="importJSON(event)">
+                                </label>
+                                <div class="border-t border-slate-700 my-1"></div>
+                                <button onclick="promptClearAll()" class="w-full text-left px-4 py-2 text-xs text-red-400 hover:bg-red-950/40 flex items-center space-x-2">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    <span>Clear All Records</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- MAIN NAVIGATION TABS -->
+        <div class="bg-slate-900 border-t border-slate-800/80 px-4">
+            <div class="max-w-7xl mx-auto flex space-x-1 overflow-x-auto no-scrollbar py-1">
+                <button onclick="switchTab('wizard')" id="tab-wizard" class="nav-tab text-emerald-400 border-b-2 border-emerald-400 px-4 py-2.5 text-xs sm:text-sm font-semibold flex items-center space-x-2 whitespace-nowrap">
+                    <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                    <span>New Fill-Up Log</span>
+                </button>
+                <button onclick="switchTab('logbook')" id="tab-logbook" class="nav-tab text-slate-400 hover:text-slate-200 px-4 py-2.5 text-xs sm:text-sm font-semibold flex items-center space-x-2 whitespace-nowrap">
+                    <i data-lucide="list" class="w-4 h-4"></i>
+                    <span>Logbook Records</span>
+                    <span id="logCountBadge" class="ml-1.5 px-2 py-0.5 rounded-full text-xs bg-slate-800 text-slate-300 font-mono">0</span>
+                </button>
+                <button onclick="switchTab('dte')" id="tab-dte" class="nav-tab text-slate-400 hover:text-slate-200 px-4 py-2.5 text-xs sm:text-sm font-semibold flex items-center space-x-2 whitespace-nowrap">
+                    <i data-lucide="fuel" class="w-4 h-4"></i>
+                    <span>DTE & Fuel Estimator</span>
+                </button>
+                <button onclick="switchTab('analytics')" id="tab-analytics" class="nav-tab text-slate-400 hover:text-slate-200 px-4 py-2.5 text-xs sm:text-sm font-semibold flex items-center space-x-2 whitespace-nowrap">
+                    <i data-lucide="line-chart" class="w-4 h-4"></i>
+                    <span>Analytics & Trends</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN BODY CONTAINER -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- TAB 1: NEW TELEMETRY LOG WIZARD -->
+        <section id="view-wizard" class="space-y-6">
+            
+            <!-- Wizard Stepper Indicator -->
+            <div class="card-panel bg-slate-800/60 border border-slate-700/60 rounded-xl p-4 shadow-sm">
+                <div class="flex items-center justify-between max-w-3xl mx-auto">
+                    <!-- Step 1 Indicator -->
+                    <div class="flex flex-col items-center flex-1 cursor-pointer" onclick="goToStep(1)">
+                        <div id="step-dot-1" class="w-9 h-9 rounded-full bg-emerald-500 text-slate-950 font-bold flex items-center justify-center text-sm shadow-md transition-all">1</div>
+                        <span id="step-label-1" class="text-xs font-semibold text-emerald-400 mt-2">Odometer / Trip</span>
+                    </div>
+                    <div class="w-12 sm:w-20 h-0.5 bg-slate-700" id="step-line-1"></div>
+                    <!-- Step 2 Indicator -->
+                    <div class="flex flex-col items-center flex-1 cursor-pointer" onclick="goToStep(2)">
+                        <div id="step-dot-2" class="w-9 h-9 rounded-full bg-slate-700 text-slate-400 font-bold flex items-center justify-center text-sm transition-all">2</div>
+                        <span id="step-label-2" class="text-xs font-medium text-slate-400 mt-2">Gas Pump / Fuel</span>
+                    </div>
+                    <div class="w-12 sm:w-20 h-0.5 bg-slate-700" id="step-line-2"></div>
+                    <!-- Step 3 Indicator -->
+                    <div class="flex flex-col items-center flex-1 cursor-pointer" onclick="goToStep(3)">
+                        <div id="step-dot-3" class="w-9 h-9 rounded-full bg-slate-700 text-slate-400 font-bold flex items-center justify-center text-sm transition-all">3</div>
+                        <span id="step-label-3" class="text-xs font-medium text-slate-400 mt-2">SID AVG Speed</span>
+                    </div>
+                    <div class="w-12 sm:w-20 h-0.5 bg-slate-700" id="step-line-3"></div>
+                    <!-- Step 4 Indicator -->
+                    <div class="flex flex-col items-center flex-1 cursor-pointer" onclick="goToStep(4)">
+                        <div id="step-dot-4" class="w-9 h-9 rounded-full bg-slate-700 text-slate-400 font-bold flex items-center justify-center text-sm transition-all">4</div>
+                        <span id="step-label-4" class="text-xs font-medium text-slate-400 mt-2">Maintenance</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 1 CONTAINER: ODOMETER & TRIPMETER -->
+            <div id="wizard-step-1" class="wizard-step-content space-y-6">
+                <div class="card-panel bg-slate-800/80 border border-slate-700 rounded-xl p-6 shadow-md">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-slate-700/60 mb-6 gap-4">
+                        <div>
+                            <h2 class="text-xl font-bold text-white flex items-center space-x-2">
+                                <i data-lucide="gauge" class="w-5 h-5 text-emerald-400"></i>
+                                <span>Step 1: Dashboard Odometer & Tripmeter</span>
+                            </h2>
+                            <p class="text-xs text-slate-400 mt-1">Scan your Saab 9-3 green LCD dashboard screen or enter values manually.</p>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <button onclick="openScanModal(1)" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg flex items-center space-x-2 shadow-lg transition">
+                                <i data-lucide="camera" class="w-4 h-4"></i>
+                                <span>Auto-Scan Camera (OCR)</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Odometer Reading Input -->
+                        <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-700/70">
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2">
+                                Current Odometer Reading (Miles)
+                            </label>
+                            <div class="relative">
+                                <input type="number" id="inputOdometer" placeholder="e.g. 216481" oninput="calculateTripDeltas()"
+                                       class="w-full bg-slate-950 text-emerald-400 text-xl font-mono font-bold px-4 py-3 rounded-lg border border-slate-700 focus:outline-none focus:border-emerald-500">
+                                <span class="absolute right-3 top-3 text-xs font-bold text-slate-500">MILES</span>
+                            </div>
+                            <p class="text-xs text-slate-400 mt-2">Filter isolates 5-6 digit integer LCD reading (filters out ambient temp & speed dials).</p>
+                        </div>
+
+                        <!-- Tripmeter Reading Input -->
+                        <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-700/70">
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2">
+                                Tripmeter Distance (Trip A/B)
+                            </label>
+                            <div class="relative">
+                                <input type="number" step="0.1" id="inputTripmeter" placeholder="e.g. 275.4" oninput="calculateTripDeltas()"
+                                       class="w-full bg-slate-950 text-emerald-400 text-xl font-mono font-bold px-4 py-3 rounded-lg border border-slate-700 focus:outline-none focus:border-emerald-500">
+                                <span class="absolute right-3 top-3 text-xs font-bold text-slate-500">MILES</span>
+                            </div>
+                            <p class="text-xs text-slate-400 mt-2">Scans standard xx.x decimal readout from your instrument panel.</p>
+                        </div>
+                    </div>
+
+                    <!-- Calculated Delta Info Banner -->
+                    <div id="step1DeltaInfo" class="mt-6 bg-slate-950/60 p-4 rounded-xl border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div class="flex items-center space-x-3">
+                            <i data-lucide="info" class="w-5 h-5 text-emerald-400 flex-shrink-0"></i>
+                            <span class="text-xs text-slate-300" id="odometerDeltaText">
+                                Enter your odometer and tripmeter readings above to track mileage increments.
+                            </span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <label class="inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="tripResetToggle" class="sr-only peer" onchange="calculateTripDeltas()">
+                                <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600 relative"></div>
+                                <span class="ml-2 text-xs font-semibold text-slate-300">Tripmeter Was Reset</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Step Nav Buttons -->
+                    <div class="mt-8 flex justify-end">
+                        <button onclick="goToStep(2)" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold rounded-lg flex items-center space-x-2 shadow-md transition">
+                            <span>Next: Gas Pump Data</span>
+                            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 2 CONTAINER: GAS PUMP / RECEIPT -->
+            <div id="wizard-step-2" class="wizard-step-content hidden space-y-6">
+                <div class="card-panel bg-slate-800/80 border border-slate-700 rounded-xl p-6 shadow-md">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-slate-700/60 mb-6 gap-4">
+                        <div>
+                            <h2 class="text-xl font-bold text-white flex items-center space-x-2">
+                                <i data-lucide="fuel" class="w-5 h-5 text-emerald-400"></i>
+                                <span>Step 2: Gas Pump Readout / Receipt</span>
+                            </h2>
+                            <p class="text-xs text-slate-400 mt-1">Scan the gas pump LCD screen or receipt. Entering any 2 values auto-calculates the 3rd!</p>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <button onclick="openScanModal(2)" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg flex items-center space-x-2 shadow-lg transition">
+                                <i data-lucide="camera" class="w-4 h-4"></i>
+                                <span>Auto-Scan Pump (OCR)</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <!-- Gallons Pumped -->
+                        <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-700/70">
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2">
+                                Gallons Fuel Pulled
+                            </label>
+                            <div class="relative">
+                                <input type="number" step="0.001" id="inputGallons" placeholder="e.g. 12.450" oninput="solveTriad('gallons')"
+                                       class="w-full bg-slate-950 text-emerald-400 text-xl font-mono font-bold px-4 py-3 rounded-lg border border-slate-700 focus:outline-none focus:border-emerald-500">
+                                <span class="absolute right-3 top-3 text-xs font-bold text-slate-500">GAL</span>
+                            </div>
+                            <p class="text-xs text-slate-400 mt-2">Saab 9-3 Tank Capacity: 16.4 Gallons</p>
+                        </div>
+
+                        <!-- Price per Gallon -->
+                        <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-700/70">
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2">
+                                Price Per Gallon
+                            </label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-3 text-xs font-bold text-slate-500">$</span>
+                                <input type="number" step="0.001" id="inputPricePerGal" placeholder="e.g. 3.499" oninput="solveTriad('price')"
+                                       class="w-full bg-slate-950 text-emerald-400 text-xl font-mono font-bold pl-7 pr-4 py-3 rounded-lg border border-slate-700 focus:outline-none focus:border-emerald-500">
+                            </div>
+                            <p class="text-xs text-slate-400 mt-2">Cost per gallon ($/gal)</p>
+                        </div>
+
+                        <!-- Total Cost -->
+                        <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-700/70">
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2">
+                                Total Fill-Up Cost
+                            </label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-3 text-xs font-bold text-slate-500">$</span>
+                                <input type="number" step="0.01" id="inputTotalCost" placeholder="e.g. 43.56" oninput="solveTriad('total')"
+                                       class="w-full bg-slate-950 text-emerald-400 text-xl font-mono font-bold pl-7 pr-4 py-3 rounded-lg border border-slate-700 focus:outline-none focus:border-emerald-500">
+                            </div>
+                            <p class="text-xs text-slate-400 mt-2">Total price paid ($)</p>
+                        </div>
+                    </div>
+
+                    <!-- Octane & Fuel Type Select -->
+                    <div class="mt-6 bg-slate-900/80 p-4 rounded-xl border border-slate-700/70 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2">Fuel Octane Grade</label>
+                            <select id="selectOctane" class="w-full bg-slate-950 text-slate-200 text-sm font-semibold p-3 rounded-lg border border-slate-700 focus:outline-none focus:border-emerald-500">
+                                <option value="93 Premium" selected>93 Premium High Octane (Recommended for Saab 2.0T/Aero)</option>
+                                <option value="91 Premium">91 Premium</option>
+                                <option value="89 Midgrade">89 Midgrade</option>
+                                <option value="87 Regular">87 Regular</option>
+                                <option value="E85 Flex">E85 BioPower / Ethanol</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2">Calculated MPG for this Fill-up</label>
+                            <div class="bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-emerald-400 font-mono font-bold text-lg flex items-center justify-between">
+                                <span id="calculatedMpgDisplay">--.- MPG</span>
+                                <span class="text-xs font-sans text-slate-400 font-normal">Based on Step 1 Distance</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Navigation -->
+                    <div class="mt-8 flex justify-between">
+                        <button onclick="goToStep(1)" class="px-5 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold rounded-lg flex items-center space-x-2">
+                            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                            <span>Back</span>
+                        </button>
+                        <button onclick="goToStep(3)" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold rounded-lg flex items-center space-x-2 shadow-md transition">
+                            <span>Next: SID Profile</span>
+                            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 3 CONTAINER: SID AVG SPEED & PROFILE -->
+            <div id="wizard-step-3" class="wizard-step-content hidden space-y-6">
+                <div class="card-panel bg-slate-800/80 border border-slate-700 rounded-xl p-6 shadow-md">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-slate-700/60 mb-6 gap-4">
+                        <div>
+                            <h2 class="text-xl font-bold text-white flex items-center space-x-2">
+                                <i data-lucide="activity" class="w-5 h-5 text-emerald-400"></i>
+                                <span>Step 3: Saab Information Display (SID) AVG Speed</span>
+                            </h2>
+                            <p class="text-xs text-slate-400 mt-1">Scan or input SID Average Speed (MPH) to automatically classify driving profile.</p>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <button onclick="openScanModal(3)" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg flex items-center space-x-2 shadow-lg transition">
+                                <i data-lucide="camera" class="w-4 h-4"></i>
+                                <span>Auto-Scan SID (OCR)</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- SID Average Speed Input -->
+                        <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-700/70">
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2">
+                                SID Average Speed Readout
+                            </label>
+                            <div class="relative">
+                                <input type="number" step="0.1" id="inputSidSpeed" placeholder="e.g. 28.5" oninput="updateDrivingProfile()"
+                                       class="w-full bg-slate-950 text-emerald-400 text-xl font-mono font-bold px-4 py-3 rounded-lg border border-slate-700 focus:outline-none focus:border-emerald-500">
+                                <span class="absolute right-3 top-3 text-xs font-bold text-slate-500">MPH</span>
+                            </div>
+                            <p class="text-xs text-slate-400 mt-2">Calculated from SID display menu.</p>
+                        </div>
+
+                        <!-- Driving Profile Classification Card -->
+                        <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-700/70 flex flex-col justify-between">
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2">
+                                    Detected Driving Profile
+                                </label>
+                                <div class="flex items-center space-x-3 mt-1">
+                                    <span id="profileBadge" class="px-3 py-1.5 rounded-lg text-sm font-extrabold uppercase bg-emerald-950 text-emerald-400 border border-emerald-800">
+                                        Combined Driving
+                                    </span>
+                                    <span id="profileMpgEstimate" class="text-xs text-slate-400 font-mono">
+                                        Target: ~22-23 MPG
+                                    </span>
+                                </div>
+                            </div>
+                            <p id="profileDescriptionText" class="text-xs text-slate-400 mt-3">
+                                SID speed of 23-38 MPH reflects a mix of city traffic and highway cruising for the Saab 9-3 2.0T.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Navigation -->
+                    <div class="mt-8 flex justify-between">
+                        <button onclick="goToStep(2)" class="px-5 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold rounded-lg flex items-center space-x-2">
+                            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                            <span>Back</span>
+                        </button>
+                        <button onclick="goToStep(4)" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold rounded-lg flex items-center space-x-2 shadow-md transition">
+                            <span>Next: Maintenance Check</span>
+                            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 4 CONTAINER: POST-WIZARD MAINTENANCE CHECK-IN -->
+            <div id="wizard-step-4" class="wizard-step-content hidden space-y-6">
+                <div class="card-panel bg-slate-800/80 border border-slate-700 rounded-xl p-6 shadow-md">
+                    <div class="flex items-center justify-between pb-4 border-b border-slate-700/60 mb-6">
+                        <div>
+                            <h2 class="text-xl font-bold text-white flex items-center space-x-2">
+                                <i data-lucide="wrench" class="w-5 h-5 text-emerald-400"></i>
+                                <span>Step 4: Maintenance Check-In & Service Log</span>
+                            </h2>
+                            <p class="text-xs text-slate-400 mt-1">Optional health check for fluid levels, tire pressures, and custom vehicle notes.</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Fluid Checks -->
+                        <div class="space-y-4 bg-slate-900/80 p-4 rounded-xl border border-slate-700/70">
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300 border-b border-slate-800 pb-2 flex items-center justify-between">
+                                <span>Fluid Levels Check</span>
+                                <i data-lucide="droplet" class="w-4 h-4 text-emerald-400"></i>
+                            </h3>
+                            
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-400 mb-1">Engine Oil Level (Mobil 1 0W-40)</label>
+                                <select id="inputOilLevel" class="w-full bg-slate-950 text-slate-200 text-xs p-2.5 rounded-lg border border-slate-700">
+                                    <option value="OK (Full)">OK (Full Level)</option>
+                                    <option value="Slightly Low (-0.5 qt)">Slightly Low (-0.5 qt)</option>
+                                    <option value="Low - Added 1 qt">Low - Added 1 Quart</option>
+                                    <option value="Fresh Oil Change Done">Fresh Oil & Filter Change Performed</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-400 mb-1">Engine Coolant Level (Dex-Cool/Saab Spec)</label>
+                                <select id="inputCoolantLevel" class="w-full bg-slate-950 text-slate-200 text-xs p-2.5 rounded-lg border border-slate-700">
+                                    <option value="OK (Cold Line)">OK (At Cold Line)</option>
+                                    <option value="Slightly Low">Slightly Low</option>
+                                    <option value="Topped Up">Topped Up Fluid</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- 4-Corner Tire Pressures -->
+                        <div class="space-y-4 bg-slate-900/80 p-4 rounded-xl border border-slate-700/70">
+                            <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center space-x-1">
+                                    <i data-lucide="disc" class="w-4 h-4 text-emerald-400"></i>
+                                    <span>Tire Pressures (PSI)</span>
+                                </h3>
+                                <button type="button" onclick="setAllTires35()" class="px-2.5 py-1 bg-emerald-950 hover:bg-emerald-900 text-emerald-400 border border-emerald-700 text-xs font-bold rounded transition">
+                                    Set 35 PSI All
+                                </button>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-400 mb-1">Front Left (FL)</label>
+                                    <input type="number" step="0.5" id="tireFL" placeholder="35.0" class="w-full bg-slate-950 text-emerald-400 font-mono font-bold text-xs p-2 rounded border border-slate-700">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-400 mb-1">Front Right (FR)</label>
+                                    <input type="number" step="0.5" id="tireFR" placeholder="35.0" class="w-full bg-slate-950 text-emerald-400 font-mono font-bold text-xs p-2 rounded border border-slate-700">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-400 mb-1">Rear Left (RL)</label>
+                                    <input type="number" step="0.5" id="tireRL" placeholder="35.0" class="w-full bg-slate-950 text-emerald-400 font-mono font-bold text-xs p-2 rounded border border-slate-700">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-400 mb-1">Rear Right (RR)</label>
+                                    <input type="number" step="0.5" id="tireRR" placeholder="35.0" class="w-full bg-slate-950 text-emerald-400 font-mono font-bold text-xs p-2 rounded border border-slate-700">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Other Notes -->
+                    <div class="mt-6 bg-slate-900/80 p-4 rounded-xl border border-slate-700/70">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2">
+                            Other Service / Maintenance Notes
+                        </label>
+                        <textarea id="inputNotes" rows="2" placeholder="e.g. Replaced ignition discharge module (DIC), spark plugs gapped to 0.9mm, or tire rotation."
+                                  class="w-full bg-slate-950 text-slate-200 text-xs p-3 rounded-lg border border-slate-700 focus:outline-none focus:border-emerald-500"></textarea>
+                    </div>
+
+                    <!-- Submit & Save Record -->
+                    <div class="mt-8 flex justify-between items-center">
+                        <button onclick="goToStep(3)" class="px-5 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold rounded-lg flex items-center space-x-2">
+                            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                            <span>Back</span>
+                        </button>
+                        <button onclick="saveCurrentLog()" class="px-8 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-sm rounded-lg flex items-center space-x-2 shadow-xl transform active:scale-95 transition">
+                            <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+                            <span>SAVE TELEMETRY RECORD</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- TAB 2: LOGBOOK RECORDS -->
+        <section id="view-logbook" class="hidden space-y-6">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-xl font-bold text-white flex items-center space-x-2">
+                        <i data-lucide="book-open" class="w-5 h-5 text-emerald-400"></i>
+                        <span>Saab 9-3 Telemetry Logbook</span>
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">Complete history of fuel fill-ups, calculated MPG, and maintenance checks.</p>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button onclick="switchTab('wizard')" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg flex items-center space-x-1.5 shadow">
+                        <i data-lucide="plus" class="w-4 h-4"></i>
+                        <span>Add New Fill-up</span>
+                    </button>
+                    <button onclick="promptClearAll()" class="px-3 py-2 bg-red-950/60 hover:bg-red-900/80 text-red-400 border border-red-800 text-xs font-semibold rounded-lg flex items-center space-x-1.5 transition">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        <span>Clear All Logs</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Log Table Card -->
+            <div class="card-panel bg-slate-800/80 border border-slate-700 rounded-xl shadow-md overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="bg-slate-950/90 text-slate-400 uppercase font-mono border-b border-slate-700/80">
+                                <th class="p-3.5">Date & Time</th>
+                                <th class="p-3.5">Odometer</th>
+                                <th class="p-3.5">Trip Dist</th>
+                                <th class="p-3.5">Fuel (Gal)</th>
+                                <th class="p-3.5">$/Gal</th>
+                                <th class="p-3.5">Total ($)</th>
+                                <th class="p-3.5">MPG</th>
+                                <th class="p-3.5">SID Profile</th>
+                                <th class="p-3.5">Maintenance Check</th>
+                                <th class="p-3.5 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logbookTableBody" class="divide-y divide-slate-700/60 font-mono">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Empty State Container -->
+                <div id="logbookEmptyState" class="p-12 text-center space-y-4">
+                    <div class="w-16 h-16 rounded-full bg-slate-900 border border-slate-700 flex items-center justify-center mx-auto text-slate-500">
+                        <i data-lucide="inbox" class="w-8 h-8"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-slate-200">No Telemetry Logs Recorded Yet</h3>
+                        <p class="text-xs text-slate-400 max-w-md mx-auto mt-1">
+                            Your mileage logbook is clean with zero sample data. Click below or scan your dash using OCR to add your first Saab 9-3 reading.
+                        </p>
+                    </div>
+                    <div>
+                        <button onclick="switchTab('wizard')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-xs rounded-lg inline-flex items-center space-x-2">
+                            <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                            <span>Create First Record</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 3: DTE & FUEL ESTIMATOR -->
+        <section id="view-dte" class="hidden space-y-6">
+            <div class="card-panel bg-slate-800/80 border border-slate-700 rounded-xl p-6 shadow-md">
+                <div class="flex items-center justify-between border-b border-slate-700/60 pb-4 mb-6">
+                    <div>
+                        <h2 class="text-xl font-bold text-white flex items-center space-x-2">
+                            <i data-lucide="fuel" class="w-5 h-5 text-emerald-400"></i>
+                            <span>Saab 9-3 Distance to Empty (DTE) & Fuel Estimator</span>
+                        </h2>
+                        <p class="text-xs text-slate-400 mt-1">Calculates remaining fuel in your 16.4 Gallon tank and remaining range based on recent MPG trends.</p>
+                    </div>
+                    <span class="px-3 py-1 bg-emerald-950 border border-emerald-700 text-emerald-400 font-mono text-xs rounded-lg font-bold">
+                        Tank: 16.4 GAL
+                    </span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Gauge Card 1: Estimated Fuel Remaining -->
+                    <div class="bg-slate-900/90 p-5 rounded-xl border border-slate-700 flex flex-col justify-between">
+                        <div>
+                            <span class="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1">Estimated Fuel Level</span>
+                            <div class="flex items-baseline space-x-2">
+                                <span id="dteRemainingGal" class="text-3xl font-extrabold font-mono text-emerald-400">16.4</span>
+                                <span class="text-xs font-bold text-slate-400">/ 16.4 GAL</span>
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <div class="w-full bg-slate-950 h-3 rounded-full overflow-hidden border border-slate-800">
+                                <div id="fuelGaugeBar" class="gauge-bar h-full bg-emerald-500 rounded-full w-full"></div>
+                            </div>
+                            <div class="flex justify-between text-[10px] text-slate-500 font-mono mt-1">
+                                <span>EMPTY</span>
+                                <span>1/2</span>
+                                <span>FULL</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Gauge Card 2: Estimated DTE Distance -->
+                    <div class="bg-slate-900/90 p-5 rounded-xl border border-slate-700 flex flex-col justify-between">
+                        <div>
+                            <span class="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1">Distance To Empty (DTE)</span>
+                            <div class="flex items-baseline space-x-2">
+                                <span id="dteMiles" class="text-3xl font-extrabold font-mono text-amber-400">377.2</span>
+                                <span class="text-xs font-bold text-slate-400">MILES</span>
+                            </div>
+                        </div>
+                        <p class="text-xs text-slate-400 mt-3" id="dteSubtext">
+                            Based on your historical average efficiency.
+                        </p>
+                    </div>
+
+                    <!-- Gauge Card 3: Historical Avg MPG -->
+                    <div class="bg-slate-900/90 p-5 rounded-xl border border-slate-700 flex flex-col justify-between">
+                        <div>
+                            <span class="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1">Telemetry Lifetime MPG</span>
+                            <div class="flex items-baseline space-x-2">
+                                <span id="dteAvgMpg" class="text-3xl font-extrabold font-mono text-slate-100">23.0</span>
+                                <span class="text-xs font-bold text-slate-400">MPG</span>
+                            </div>
+                        </div>
+                        <p class="text-xs text-slate-400 mt-3">
+                            Saab 9-3 2.0T Factory Rating: ~20 City / 29 Highway.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Interactive Range Simulator Slider -->
+                <div class="mt-8 bg-slate-900/60 p-6 rounded-xl border border-slate-700/60">
+                    <h3 class="text-sm font-bold text-slate-200 mb-2">Interactive Trip Fuel Level Simulator</h3>
+                    <p class="text-xs text-slate-400 mb-4">Drag the slider to test trip range scenarios based on custom tank levels.</p>
+                    
+                    <div class="space-y-4">
+                        <input type="range" id="simFuelSlider" min="0" max="16.4" step="0.1" value="16.4" oninput="updateDteSimulator()"
+                               class="w-full accent-emerald-500 bg-slate-950 h-2 rounded-lg cursor-pointer">
+                        <div class="flex justify-between text-xs font-mono text-slate-400">
+                            <span>0 Gal (Refuel Urgent)</span>
+                            <span id="simSliderLabel" class="text-emerald-400 font-bold">16.4 Gal (Full)</span>
+                            <span>16.4 Gal</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 4: ANALYTICS & TREND CHARTS -->
+        <section id="view-analytics" class="hidden space-y-6">
+            <div class="card-panel bg-slate-800/80 border border-slate-700 rounded-xl p-6 shadow-md">
+                <div class="flex items-center justify-between border-b border-slate-700/60 pb-4 mb-6">
+                    <div>
+                        <h2 class="text-xl font-bold text-white flex items-center space-x-2">
+                            <i data-lucide="line-chart" class="w-5 h-5 text-emerald-400"></i>
+                            <span>Saab Telemetry Analytics</span>
+                        </h2>
+                        <p class="text-xs text-slate-400 mt-1">Visual trend graphs for MPG efficiency, fuel expenditure, and tire pressure stability over time.</p>
+                    </div>
+                </div>
+
+                <!-- Chart Container / Empty State Guard -->
+                <div id="analyticsChartsWrapper" class="space-y-8">
+                    <!-- MPG Efficiency Chart Card -->
+                    <div class="bg-slate-900/90 p-5 rounded-xl border border-slate-700">
+                        <h3 class="text-sm font-bold text-slate-200 mb-4 flex items-center space-x-2">
+                            <i data-lucide="trending-up" class="w-4 h-4 text-emerald-400"></i>
+                            <span>Fuel Efficiency Trend (MPG per Fill-up)</span>
+                        </h3>
+                        <div class="h-64 relative">
+                            <canvas id="mpgChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Fuel Cost Chart Card -->
+                    <div class="bg-slate-900/90 p-5 rounded-xl border border-slate-700">
+                        <h3 class="text-sm font-bold text-slate-200 mb-4 flex items-center space-x-2">
+                            <i data-lucide="dollar-sign" class="w-4 h-4 text-amber-400"></i>
+                            <span>Fuel Cost per Gallon ($/Gal)</span>
+                        </h3>
+                        <div class="h-64 relative">
+                            <canvas id="costChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Analytics Empty State -->
+                <div id="analyticsEmptyState" class="hidden p-12 text-center space-y-4">
+                    <div class="w-16 h-16 rounded-full bg-slate-900 border border-slate-700 flex items-center justify-center mx-auto text-slate-500">
+                        <i data-lucide="bar-chart-2" class="w-8 h-8"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-slate-200">No Analytics Available Yet</h3>
+                        <p class="text-xs text-slate-400 max-w-md mx-auto mt-1">
+                            Add at least 1 fill-up telemetry entry to view dynamic MPG trends and expense tracking charts.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- LIVE CAMERA OCR AUTO-SCAN MODAL -->
+    <div id="cameraModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 modal-backdrop">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            
+            <!-- Modal Header -->
+            <div class="bg-slate-950 p-4 border-b border-slate-800 flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <div class="w-3 h-3 rounded-full bg-red-500 animate-pulse"></div>
+                    <h3 id="modalScanTitle" class="font-bold text-sm text-white">Live Camera OCR Auto-Scan</h3>
+                </div>
+                <button onclick="closeScanModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Modal Content / Viewfinder -->
+            <div class="p-4 space-y-4 overflow-y-auto flex-grow">
+                <!-- Video Stream Canvas Overlay Container -->
+                <div class="relative bg-black rounded-xl overflow-hidden aspect-video border border-slate-800 flex items-center justify-center">
+                    <video id="cameraVideo" autoplay playsinline class="w-full h-full object-cover"></video>
+                    <canvas id="ocrCanvas" class="hidden"></canvas>
+                    
+                    <!-- HUD Scan Frame Target Box -->
+                    <div class="absolute inset-4 border-2 border-dashed border-emerald-400/70 rounded-lg pointer-events-none flex flex-col justify-between p-2">
+                        <div class="flex justify-between">
+                            <span class="text-[10px] font-mono bg-emerald-950/80 text-emerald-400 px-2 py-0.5 rounded border border-emerald-700/50">
+                                SAAB OCR TARGET
+                            </span>
+                            <span id="scanStepBadge" class="text-[10px] font-mono bg-slate-900/80 text-slate-300 px-2 py-0.5 rounded">
+                                STEP 1
+                            </span>
+                        </div>
+                        <div class="text-center">
+                            <span id="hudStatusBadge" class="inline-block text-xs font-mono font-bold bg-slate-950/90 text-emerald-400 px-3 py-1 rounded-full border border-emerald-500/40">
+                                Scanning loop active...
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Recognition Logs / Output Feedback -->
+                <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 text-xs font-mono space-y-1">
+                    <div class="text-slate-400 flex items-center justify-between">
+                        <span>OCR Status:</span>
+                        <span id="ocrStatusText" class="text-emerald-400 font-bold">Initializing Engine...</span>
+                    </div>
+                    <div id="ocrDetectedText" class="text-slate-300 truncate">
+                        Detected: --
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer Controls -->
+            <div class="bg-slate-950 p-4 border-t border-slate-800 flex flex-wrap gap-2 items-center justify-between">
+                <label class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs rounded-lg cursor-pointer flex items-center space-x-1.5">
+                    <i data-lucide="image" class="w-4 h-4 text-amber-400"></i>
+                    <span>Upload Photo</span>
+                    <input type="file" id="ocrFileInput" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+                </label>
+
+                <div class="flex items-center space-x-2">
+                    <button onclick="triggerSingleScan()" class="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs rounded-lg flex items-center space-x-1.5 shadow">
+                        <i data-lucide="scan" class="w-4 h-4"></i>
+                        <span>Scan Now</span>
+                    </button>
+                    <button onclick="closeScanModal()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold text-xs rounded-lg">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- CUSTOM CONFIRMATION MODAL (NO ALERT/CONFIRM) -->
+    <div id="confirmModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 modal-backdrop">
+        <div class="bg-slate-900 border border-slate-700 rounded-xl max-w-md w-full shadow-2xl p-6 space-y-4">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-full bg-red-500/20 border border-red-500/40 flex items-center justify-center text-red-400 flex-shrink-0">
+                    <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h3 id="confirmModalTitle" class="font-bold text-base text-white">Confirm Action</h3>
+                    <p id="confirmModalText" class="text-xs text-slate-400 mt-1">Are you sure you want to proceed?</p>
+                </div>
+            </div>
+            <div class="flex justify-end space-x-3 pt-2">
+                <button onclick="closeConfirmModal(false)" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-lg">
+                    Cancel
+                </button>
+                <button id="confirmModalActionBtn" onclick="closeConfirmModal(true)" class="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-lg shadow">
+                    Confirm Delete
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- EDIT RECORD MODAL -->
+    <div id="editModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 modal-backdrop">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="bg-slate-950 p-4 border-b border-slate-800 flex items-center justify-between">
+                <h3 class="font-bold text-sm text-white flex items-center space-x-2">
+                    <i data-lucide="edit-3" class="w-4 h-4 text-emerald-400"></i>
+                    <span>Edit Telemetry Record</span>
+                </h3>
+                <button onclick="closeEditModal()" class="text-slate-400 hover:text-white p-1">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-4 overflow-y-auto">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-300 mb-1">Odometer (Miles)</label>
+                        <input type="number" id="editOdometer" class="w-full bg-slate-950 text-emerald-400 font-mono text-xs p-2.5 rounded border border-slate-700">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-300 mb-1">Tripmeter (Miles)</label>
+                        <input type="number" step="0.1" id="editTripmeter" class="w-full bg-slate-950 text-emerald-400 font-mono text-xs p-2.5 rounded border border-slate-700">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-300 mb-1">Gallons Fuel</label>
+                        <input type="number" step="0.001" id="editGallons" class="w-full bg-slate-950 text-emerald-400 font-mono text-xs p-2.5 rounded border border-slate-700">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-300 mb-1">Price per Gal ($)</label>
+                        <input type="number" step="0.001" id="editPrice" class="w-full bg-slate-950 text-emerald-400 font-mono text-xs p-2.5 rounded border border-slate-700">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-300 mb-1">Total Cost ($)</label>
+                        <input type="number" step="0.01" id="editTotalCost" class="w-full bg-slate-950 text-emerald-400 font-mono text-xs p-2.5 rounded border border-slate-700">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-300 mb-1">SID AVG Speed (MPH)</label>
+                        <input type="number" step="0.1" id="editSidSpeed" class="w-full bg-slate-950 text-emerald-400 font-mono text-xs p-2.5 rounded border border-slate-700">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-300 mb-1">Maintenance Notes</label>
+                    <textarea id="editNotes" rows="2" class="w-full bg-slate-950 text-slate-200 text-xs p-2.5 rounded border border-slate-700"></textarea>
+                </div>
+            </div>
+            <div class="bg-slate-950 p-4 border-t border-slate-800 flex justify-end space-x-3">
+                <button onclick="closeEditModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg">
+                    Cancel
+                </button>
+                <button onclick="saveEditRecord()" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-slate-950 text-xs font-bold rounded-lg shadow">
+                    Save Changes
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- APPLICATION JAVASCRIPT ARCHITECTURE -->
+    <script>
+        /**
+         * Saab 9-3 Telemetry Application State Management
+         */
+        const STORAGE_KEY = 'saab_93_telemetry_logs_v2';
+        
+        let appState = {
+            logs: [], // Starts completely empty ([]) per specification
+            currentTab: 'wizard',
+            currentStep: 1,
+            nightPanel: false,
+            cameraStream: null,
+            isScanningLoop: false,
+            activeScanStep: 1,
+            confirmCallback: null,
+            editingRecordIndex: null,
+            tesseractWorker: null
+        };
+
+        // Chart instances
+        let mpgChartInstance = null;
+        let costChartInstance = null;
+
+        /**
+         * Initialize Application on Window Load
+         */
+        window.onload = function() {
+            lucide.createIcons();
+            loadLogsFromStorage();
+            updateLogbookUI();
+            updateDteUI();
+            updateLastSavedBadge();
+            
+            // Event Listener to close Data dropdown on outside click
+            document.addEventListener('click', function(e) {
+                const dropdown = document.getElementById('dataMenuDropdown');
+                if (dropdown && !dropdown.contains(e.target) && !e.target.closest('button[onclick="toggleDataMenu()"]')) {
+                    dropdown.classList.add('hidden');
+                }
+            });
+        };
+
+        /**
+         * Load and Save Persistence
+         */
+        function loadLogsFromStorage() {
+            try {
+                const stored = localStorage.getItem(STORAGE_KEY);
+                if (stored) {
+                    appState.logs = JSON.parse(stored);
+                } else {
+                    appState.logs = []; // Strict requirement: start with clean empty list
+                }
+            } catch (err) {
+                console.error("Failed to load logs:", err);
+                appState.logs = [];
+            }
+        }
+
+        function saveLogsToStorage() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(appState.logs));
+                updateLastSavedBadge();
+            } catch (err) {
+                console.error("Failed to save logs:", err);
+            }
+        }
+
+        function updateLastSavedBadge() {
+            const el = document.getElementById('lastSavedTime');
+            if (el) {
+                const now = new Date();
+                el.innerText = 'Saved ' + now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
+        }
+
+        /**
+         * Navigation Tab Switching
+         */
+        function switchTab(tabName) {
+            appState.currentTab = tabName;
+            
+            // Hide all views
+            ['wizard', 'logbook', 'dte', 'analytics'].forEach(t => {
+                const view = document.getElementById(`view-${t}`);
+                const nav = document.getElementById(`tab-${t}`);
+                if (view) view.classList.add('hidden');
+                if (nav) {
+                    nav.classList.remove('text-emerald-400', 'border-b-2', 'border-emerald-400');
+                    nav.classList.add('text-slate-400');
+                }
+            });
+
+            // Show active view
+            const activeView = document.getElementById(`view-${tabName}`);
+            const activeNav = document.getElementById(`tab-${tabName}`);
+            if (activeView) activeView.classList.remove('hidden');
+            if (activeNav) {
+                activeNav.classList.remove('text-slate-400');
+                activeNav.classList.add('text-emerald-400', 'border-b-2', 'border-emerald-400');
+            }
+
+            if (tabName === 'logbook') updateLogbookUI();
+            if (tabName === 'dte') updateDteUI();
+            if (tabName === 'analytics') renderAnalyticsCharts();
+        }
+
+        /**
+         * Wizard Navigation Controls
+         */
+        function goToStep(stepNum) {
+            appState.currentStep = stepNum;
+            
+            for (let i = 1; i <= 4; i++) {
+                const container = document.getElementById(`wizard-step-${i}`);
+                const dot = document.getElementById(`step-dot-${i}`);
+                const label = document.getElementById(`step-label-${i}`);
+                const line = document.getElementById(`step-line-${i}`);
+
+                if (container) {
+                    if (i === stepNum) container.classList.remove('hidden');
+                    else container.classList.add('hidden');
+                }
+
+                if (dot) {
+                    if (i < stepNum) {
+                        dot.className = "w-9 h-9 rounded-full bg-emerald-600 text-white font-bold flex items-center justify-center text-sm shadow transition-all";
+                    } else if (i === stepNum) {
+                        dot.className = "w-9 h-9 rounded-full bg-emerald-400 text-slate-950 font-extrabold flex items-center justify-center text-sm shadow-lg ring-4 ring-emerald-500/30 transition-all";
+                    } else {
+                        dot.className = "w-9 h-9 rounded-full bg-slate-700 text-slate-400 font-bold flex items-center justify-center text-sm transition-all";
+                    }
+                }
+
+                if (label) {
+                    if (i <= stepNum) label.className = "text-xs font-semibold text-emerald-400 mt-2";
+                    else label.className = "text-xs font-medium text-slate-400 mt-2";
+                }
+
+                if (line) {
+                    if (i < stepNum) line.className = "w-12 sm:w-20 h-0.5 bg-emerald-500";
+                    else line.className = "w-12 sm:w-20 h-0.5 bg-slate-700";
+                }
+            }
+        }
+
+        /**
+         * Step 1 Calculations
+         */
+        function calculateTripDeltas() {
+            const odo = parseFloat(document.getElementById('inputOdometer').value) || 0;
+            const trip = parseFloat(document.getElementById('inputTripmeter').value) || 0;
+            const textEl = document.getElementById('odometerDeltaText');
+
+            if (!textEl) return;
+
+            if (appState.logs.length > 0) {
+                const lastLog = appState.logs[0];
+                const deltaOdo = odo > 0 ? (odo - lastLog.odometer).toFixed(1) : 0;
+                textEl.innerHTML = `Previous log: <strong class="text-white">${lastLog.odometer} mi</strong>. Delta: <strong class="text-emerald-400">${deltaOdo > 0 ? deltaOdo : '--'} miles</strong>.`;
+            } else {
+                textEl.innerText = `First telemetry log entry. Base mileage set to ${odo || '--'} miles.`;
+            }
+
+            calculateMpgEstimate();
+        }
+
+        /**
+         * Step 2: Triad Solver (Gallons, $/Gal, Total Cost)
+         */
+        function solveTriad(changedField) {
+            const galEl = document.getElementById('inputGallons');
+            const priceEl = document.getElementById('inputPricePerGal');
+            const totalEl = document.getElementById('inputTotalCost');
+
+            let gal = parseFloat(galEl.value);
+            let price = parseFloat(priceEl.value);
+            let total = parseFloat(totalEl.value);
+
+            if (changedField === 'gallons' || changedField === 'price') {
+                if (!isNaN(gal) && !isNaN(price)) {
+                    totalEl.value = (gal * price).toFixed(2);
+                }
+            } else if (changedField === 'total') {
+                if (!isNaN(total) && !isNaN(price) && price > 0) {
+                    galEl.value = (total / price).toFixed(3);
+                } else if (!isNaN(total) && !isNaN(gal) && gal > 0) {
+                    priceEl.value = (total / gal).toFixed(3);
+                }
+            }
+
+            calculateMpgEstimate();
+        }
+
+        function calculateMpgEstimate() {
+            const trip = parseFloat(document.getElementById('inputTripmeter').value) || 0;
+            const odo = parseFloat(document.getElementById('inputOdometer').value) || 0;
+            const gal = parseFloat(document.getElementById('inputGallons').value) || 0;
+            const displayEl = document.getElementById('calculatedMpgDisplay');
+
+            let effDistance = trip;
+            if (effDistance === 0 && appState.logs.length > 0 && odo > 0) {
+                effDistance = odo - appState.logs[0].odometer;
+            }
+
+            if (effDistance > 0 && gal > 0) {
+                const mpg = (effDistance / gal).toFixed(1);
+                displayEl.innerText = `${mpg} MPG`;
+            } else {
+                displayEl.innerText = `--.- MPG`;
+            }
+        }
+
+        /**
+         * Step 3: SID AVG Speed & Driving Profile Classifier
+         */
+        function updateDrivingProfile() {
+            const speed = parseFloat(document.getElementById('inputSidSpeed').value) || 0;
+            const badge = document.getElementById('profileBadge');
+            const mpgEst = document.getElementById('profileMpgEstimate');
+            const desc = document.getElementById('profileDescriptionText');
+
+            if (speed <= 0) {
+                badge.innerText = "Combined Driving";
+                mpgEst.innerText = "Target: ~22-23 MPG";
+                desc.innerText = "Enter your Saab Information Display average speed readout.";
+                return;
+            }
+
+            if (speed < 23) {
+                badge.innerText = "City Heavy";
+                badge.className = "px-3 py-1.5 rounded-lg text-sm font-extrabold uppercase bg-amber-950 text-amber-400 border border-amber-800";
+                mpgEst.innerText = "Target: ~19-20 MPG";
+                desc.innerText = `SID speed of ${speed} MPH indicates stop-and-go city traffic. Turbo spool frequency lowers fuel economy.`;
+            } else if (speed >= 23 && speed <= 38) {
+                badge.innerText = "Combined Driving";
+                badge.className = "px-3 py-1.5 rounded-lg text-sm font-extrabold uppercase bg-emerald-950 text-emerald-400 border border-emerald-800";
+                mpgEst.innerText = "Target: ~22-23 MPG";
+                desc.innerText = `SID speed of ${speed} MPH reflects a balanced mix of city streets and suburban highway cruising.`;
+            } else {
+                badge.innerText = "Highway Cruising";
+                badge.className = "px-3 py-1.5 rounded-lg text-sm font-extrabold uppercase bg-blue-950 text-blue-400 border border-blue-800";
+                mpgEst.innerText = "Target: ~28-29 MPG";
+                desc.innerText = `SID speed of ${speed} MPH indicates efficient highway driving in top gear (5th/6th manual or 5-speed Sentronic).`;
+            }
+        }
+
+        /**
+         * Step 4: Maintenance Quick Action
+         */
+        function setAllTires35() {
+            document.getElementById('tireFL').value = "35.0";
+            document.getElementById('tireFR').value = "35.0";
+            document.getElementById('tireRL').value = "35.0";
+            document.getElementById('tireRR').value = "35.0";
+        }
+
+        /**
+         * Save New Telemetry Record
+         */
+        function saveCurrentLog() {
+            const odo = parseFloat(document.getElementById('inputOdometer').value);
+            const trip = parseFloat(document.getElementById('inputTripmeter').value) || 0;
+            const gal = parseFloat(document.getElementById('inputGallons').value);
+            const price = parseFloat(document.getElementById('inputPricePerGal').value) || 0;
+            const total = parseFloat(document.getElementById('inputTotalCost').value) || 0;
+            const sidSpeed = parseFloat(document.getElementById('inputSidSpeed').value) || 0;
+            
+            if (isNaN(odo) || isNaN(gal) || odo <= 0 || gal <= 0) {
+                showToast("Please enter valid Odometer and Gallons values.", "error");
+                return;
+            }
+
+            // Calculate MPG
+            let distance = trip;
+            if (distance === 0 && appState.logs.length > 0) {
+                distance = odo - appState.logs[0].odometer;
+            }
+            const calculatedMpg = distance > 0 ? parseFloat((distance / gal).toFixed(1)) : 0;
+
+            // Profile string
+            let profile = "Combined";
+            if (sidSpeed > 0) {
+                if (sidSpeed < 23) profile = "City";
+                else if (sidSpeed > 38) profile = "Highway";
+            }
+
+            const newLog = {
+                id: 'log_' + Date.now(),
+                timestamp: new Date().toISOString(),
+                odometer: odo,
+                tripmeter: trip,
+                gallons: gal,
+                pricePerGal: price,
+                totalCost: total > 0 ? total : parseFloat((gal * price).toFixed(2)),
+                octane: document.getElementById('selectOctane').value,
+                mpg: calculatedMpg,
+                sidSpeed: sidSpeed,
+                drivingProfile: profile,
+                maintenance: {
+                    oilLevel: document.getElementById('inputOilLevel').value,
+                    coolantLevel: document.getElementById('inputCoolantLevel').value,
+                    tires: {
+                        fl: document.getElementById('tireFL').value || "35.0",
+                        fr: document.getElementById('tireFR').value || "35.0",
+                        rl: document.getElementById('tireRL').value || "35.0",
+                        rr: document.getElementById('tireRR').value || "35.0"
+                    },
+                    notes: document.getElementById('inputNotes').value.trim()
+                }
+            };
+
+            // Prepend new record
+            appState.logs.unshift(newLog);
+            saveLogsToStorage();
+
+            // Clear inputs
+            document.getElementById('inputOdometer').value = '';
+            document.getElementById('inputTripmeter').value = '';
+            document.getElementById('inputGallons').value = '';
+            document.getElementById('inputPricePerGal').value = '';
+            document.getElementById('inputTotalCost').value = '';
+            document.getElementById('inputSidSpeed').value = '';
+            document.getElementById('inputNotes').value = '';
+
+            // Switch to Logbook
+            goToStep(1);
+            switchTab('logbook');
+        }
+
+        /**
+         * Render Logbook Table (Guarantees Working Edit & Delete Buttons)
+         */
+        function updateLogbookUI() {
+            const tableBody = document.getElementById('logbookTableBody');
+            const emptyState = document.getElementById('logbookEmptyState');
+            const badge = document.getElementById('logCountBadge');
+
+            if (!tableBody) return;
+
+            badge.innerText = appState.logs.length;
+
+            if (appState.logs.length === 0) {
+                tableBody.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            
+            let html = '';
+            appState.logs.forEach((log, index) => {
+                const dateStr = new Date(log.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+                const timeStr = new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                html += `
+                    <tr class="hover:bg-slate-800/50 transition border-b border-slate-700/40">
+                        <td class="p-3.5 text-slate-300">
+                            <div class="font-bold text-white">${dateStr}</div>
+                            <div class="text-[10px] text-slate-400">${timeStr}</div>
+                        </td>
+                        <td class="p-3.5 text-emerald-400 font-bold">${log.odometer.toLocaleString()} mi</td>
+                        <td class="p-3.5 text-slate-300">${log.tripmeter ? log.tripmeter + ' mi' : '--'}</td>
+                        <td class="p-3.5 text-slate-200">${log.gallons.toFixed(3)}</td>
+                        <td class="p-3.5 text-slate-400">$${log.pricePerGal ? log.pricePerGal.toFixed(3) : '--'}</td>
+                        <td class="p-3.5 text-emerald-400 font-bold">$${log.totalCost ? log.totalCost.toFixed(2) : '--'}</td>
+                        <td class="p-3.5">
+                            <span class="px-2 py-1 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 font-bold">
+                                ${log.mpg > 0 ? log.mpg + ' MPG' : '--'}
+                            </span>
+                        </td>
+                        <td class="p-3.5 text-slate-300">
+                            <span class="text-[11px] text-slate-400">${log.drivingProfile || 'Combined'}</span>
+                            ${log.sidSpeed ? `<div class="text-[10px] text-slate-500">${log.sidSpeed} MPH</div>` : ''}
+                        </td>
+                        <td class="p-3.5 text-slate-400">
+                            <div class="text-[11px] truncate max-w-[140px]" title="${log.maintenance?.notes || 'Normal Check'}">
+                                ${log.maintenance?.notes || 'Oil: ' + (log.maintenance?.oilLevel || 'OK')}
+                            </div>
+                        </td>
+                        <td class="p-3.5 text-right whitespace-nowrap space-x-1">
+                            <button onclick="openEditModal(${index})" class="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded text-xs transition">
+                                Edit
+                            </button>
+                            <button onclick="promptDeleteLog(${index})" class="px-2.5 py-1 bg-red-950/80 hover:bg-red-800 text-red-400 border border-red-800 rounded text-xs transition">
+                                Delete
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            tableBody.innerHTML = html;
+        }
+
+        /**
+         * Explicit Delete & Clear All Modal Handlers
+         */
+        function promptDeleteLog(index) {
+            const log = appState.logs[index];
+            if (!log) return;
+            
+            document.getElementById('confirmModalTitle').innerText = "Delete Record";
+            document.getElementById('confirmModalText').innerText = `Are you sure you want to delete the telemetry log for ${log.odometer} miles from your records?`;
+            
+            appState.confirmCallback = function() {
+                appState.logs.splice(index, 1);
+                saveLogsToStorage();
+                updateLogbookUI();
+                updateDteUI();
+            };
+            
+            document.getElementById('confirmModal').classList.remove('hidden');
+        }
+
+        function promptClearAll() {
+            if (appState.logs.length === 0) {
+                showToast("Logbook is already empty.", "info");
+                return;
+            }
+
+            document.getElementById('confirmModalTitle').innerText = "Clear ALL Telemetry Records";
+            document.getElementById('confirmModalText').innerText = "This will permanently remove all fuel logs and telemetry history from your device localStorage. Are you sure?";
+            
+            appState.confirmCallback = function() {
+                appState.logs = [];
+                saveLogsToStorage();
+                updateLogbookUI();
+                updateDteUI();
+                if (appState.currentTab === 'analytics') renderAnalyticsCharts();
+            };
+            
+            document.getElementById('confirmModal').classList.remove('hidden');
+        }
+
+        function closeConfirmModal(confirmed) {
+            document.getElementById('confirmModal').classList.add('hidden');
+            if (confirmed && typeof appState.confirmCallback === 'function') {
+                appState.confirmCallback();
+            }
+            appState.confirmCallback = null;
+        }
+
+        /**
+         * Explicit Edit Modal Handlers
+         */
+        function openEditModal(index) {
+            const log = appState.logs[index];
+            if (!log) return;
+
+            appState.editingRecordIndex = index;
+            document.getElementById('editOdometer').value = log.odometer;
+            document.getElementById('editTripmeter').value = log.tripmeter || '';
+            document.getElementById('editGallons').value = log.gallons;
+            document.getElementById('editPrice').value = log.pricePerGal || '';
+            document.getElementById('editTotalCost').value = log.totalCost || '';
+            document.getElementById('editSidSpeed').value = log.sidSpeed || '';
+            document.getElementById('editNotes').value = log.maintenance?.notes || '';
+
+            document.getElementById('editModal').classList.remove('hidden');
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.add('hidden');
+            appState.editingRecordIndex = null;
+        }
+
+        function saveEditRecord() {
+            const index = appState.editingRecordIndex;
+            if (index === null || !appState.logs[index]) return;
+
+            const odo = parseFloat(document.getElementById('editOdometer').value);
+            const gal = parseFloat(document.getElementById('editGallons').value);
+
+            if (isNaN(odo) || isNaN(gal)) {
+                showToast("Odometer and Gallons are required.", "error");
+                return;
+            }
+
+            const log = appState.logs[index];
+            log.odometer = odo;
+            log.tripmeter = parseFloat(document.getElementById('editTripmeter').value) || 0;
+            log.gallons = gal;
+            log.pricePerGal = parseFloat(document.getElementById('editPrice').value) || 0;
+            log.totalCost = parseFloat(document.getElementById('editTotalCost').value) || 0;
+            log.sidSpeed = parseFloat(document.getElementById('editSidSpeed').value) || 0;
+            
+            if (!log.maintenance) log.maintenance = {};
+            log.maintenance.notes = document.getElementById('editNotes').value.trim();
+
+            // Recalculate MPG
+            if (log.tripmeter > 0 && log.gallons > 0) {
+                log.mpg = parseFloat((log.tripmeter / log.gallons).toFixed(1));
+            }
+
+            saveLogsToStorage();
+            updateLogbookUI();
+            updateDteUI();
+            closeEditModal();
+        }
+
+        /**
+         * DTE & Fuel Estimator Logic
+         */
+        function updateDteUI() {
+            const remGalEl = document.getElementById('dteRemainingGal');
+            const milesEl = document.getElementById('dteMiles');
+            const avgMpgEl = document.getElementById('dteAvgMpg');
+            const bar = document.getElementById('fuelGaugeBar');
+
+            let avgMpg = 23.0; // Default baseline for Saab 9-3 2.0T
+            if (appState.logs.length > 0) {
+                const validMpgs = appState.logs.filter(l => l.mpg > 0).map(l => l.mpg);
+                if (validMpgs.length > 0) {
+                    avgMpg = validMpgs.reduce((a, b) => a + b, 0) / validMpgs.length;
+                }
+            }
+            avgMpgEl.innerText = avgMpg.toFixed(1);
+
+            // Estimate fuel from last fill-up
+            let remGal = 16.4;
+            if (appState.logs.length > 0) {
+                const lastLog = appState.logs[0];
+                const currentTrip = lastLog.tripmeter || 0;
+                const usedGal = currentTrip / avgMpg;
+                remGal = Math.max(0, 16.4 - usedGal);
+            }
+
+            remGalEl.innerText = remGal.toFixed(1);
+            const dteMiles = (remGal * avgMpg).toFixed(1);
+            milesEl.innerText = dteMiles;
+
+            const pct = Math.min(100, Math.max(0, (remGal / 16.4) * 100));
+            if (bar) bar.style.width = pct + '%';
+        }
+
+        function updateDteSimulator() {
+            const val = parseFloat(document.getElementById('simFuelSlider').value) || 0;
+            document.getElementById('simSliderLabel').innerText = `${val.toFixed(1)} Gal`;
+            
+            const avgMpg = parseFloat(document.getElementById('dteAvgMpg').innerText) || 23.0;
+            document.getElementById('dteRemainingGal').innerText = val.toFixed(1);
+            document.getElementById('dteMiles').innerText = (val * avgMpg).toFixed(1);
+
+            const pct = Math.min(100, Math.max(0, (val / 16.4) * 100));
+            const bar = document.getElementById('fuelGaugeBar');
+            if (bar) bar.style.width = pct + '%';
+        }
+
+        /**
+         * Analytics & Chart.js Integration
+         */
+        function renderAnalyticsCharts() {
+            const wrapper = document.getElementById('analyticsChartsWrapper');
+            const emptyState = document.getElementById('analyticsEmptyState');
+
+            if (appState.logs.length === 0) {
+                wrapper.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            wrapper.classList.remove('hidden');
+            emptyState.classList.add('hidden');
+
+            const reversedLogs = [...appState.logs].reverse();
+            const labels = reversedLogs.map(l => new Date(l.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' }));
+            const mpgData = reversedLogs.map(l => l.mpg || 0);
+            const priceData = reversedLogs.map(l => l.pricePerGal || 0);
+
+            // Destroy existing charts to prevent memory leak
+            if (mpgChartInstance) mpgChartInstance.destroy();
+            if (costChartInstance) costChartInstance.destroy();
+
+            const isNight = appState.nightPanel;
+            const lineColor = isNight ? '#00ff66' : '#10b981';
+            const amberColor = isNight ? '#ffaa00' : '#f59e0b';
+            const textColor = isNight ? '#00ff66' : '#94a3b8';
+
+            // MPG Chart
+            const ctx1 = document.getElementById('mpgChart').getContext('2d');
+            mpgChartInstance = new Chart(ctx1, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Calculated MPG',
+                        data: mpgData,
+                        borderColor: lineColor,
+                        backgroundColor: isNight ? 'rgba(0,255,102,0.1)' : 'rgba(16,185,129,0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { ticks: { color: textColor } },
+                        y: { ticks: { color: textColor }, beginAtZero: false }
+                    },
+                    plugins: { legend: { labels: { color: textColor } } }
+                }
+            });
+
+            // Fuel Price Chart
+            const ctx2 = document.getElementById('costChart').getContext('2d');
+            costChartInstance = new Chart(ctx2, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Price per Gallon ($)',
+                        data: priceData,
+                        borderColor: amberColor,
+                        backgroundColor: 'rgba(245,158,11,0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { ticks: { color: textColor } },
+                        y: { ticks: { color: textColor }, beginAtZero: false }
+                    },
+                    plugins: { legend: { labels: { color: textColor } } }
+                }
+            });
+        }
+
+        /**
+         * Saab 9-3 Night Panel Toggle
+         */
+        function toggleNightPanel() {
+            appState.nightPanel = !appState.nightPanel;
+            const body = document.getElementById('appBody');
+            const btn = document.getElementById('nightPanelBtn');
+
+            if (appState.nightPanel) {
+                body.classList.add('night-panel');
+                btn.className = "flex items-center space-x-2 px-3 py-1.5 rounded-lg border border-emerald-400 bg-emerald-950 text-emerald-400 font-bold text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/20";
+                showToast("Saab Night Panel Activated", "info");
+            } else {
+                body.classList.remove('night-panel');
+                btn.className = "flex items-center space-x-2 px-3 py-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-xs font-bold uppercase tracking-wider shadow-sm";
+            }
+
+            if (appState.currentTab === 'analytics') renderAnalyticsCharts();
+        }
+
+        /**
+         * LIVE CAMERA & OCR AUTO-SCANNING ENGINE (Tesseract.js v5)
+         */
+        function openScanModal(stepNum) {
+            appState.activeScanStep = stepNum;
+            const badge = document.getElementById('scanStepBadge');
+            const title = document.getElementById('modalScanTitle');
+
+            if (stepNum === 1) {
+                title.innerText = "Auto-Scanning Odometer & Tripmeter LCD";
+                badge.innerText = "STEP 1: DASH LCD";
+            } else if (stepNum === 2) {
+                title.innerText = "Auto-Scanning Gas Pump Readout / Receipt";
+                badge.innerText = "STEP 2: GAS PUMP";
+            } else {
+                title.innerText = "Auto-Scanning Saab SID AVG Speed";
+                badge.innerText = "STEP 3: SID SPEED";
+            }
+
+            document.getElementById('cameraModal').classList.remove('hidden');
+            startCameraStream();
+        }
+
+        function closeScanModal() {
+            stopCameraStream();
+            document.getElementById('cameraModal').classList.add('hidden');
+        }
+
+        async function startCameraStream() {
+            const video = document.getElementById('cameraVideo');
+            const statusText = document.getElementById('ocrStatusText');
+            
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+                });
+                appState.cameraStream = stream;
+                video.srcObject = stream;
+                statusText.innerText = "Camera Active. Auto-Scanning Loop Running...";
+
+                // Start Auto-Scanning interval
+                appState.isScanningLoop = true;
+                runAutoScanLoop();
+            } catch (err) {
+                console.warn("Camera access failed or blocked:", err);
+                statusText.innerText = "Camera Unavailable. Use 'Upload Photo' button.";
+            }
+        }
+
+        function stopCameraStream() {
+            appState.isScanningLoop = false;
+            if (appState.cameraStream) {
+                appState.cameraStream.getTracks().forEach(track => track.stop());
+                appState.cameraStream = null;
+            }
+        }
+
+        async function runAutoScanLoop() {
+            if (!appState.isScanningLoop) return;
+            
+            await performOcrScan();
+            
+            // Loop every 2.5 seconds if still active
+            if (appState.isScanningLoop) {
+                setTimeout(runAutoScanLoop, 2500);
+            }
+        }
+
+        async function triggerSingleScan() {
+            document.getElementById('ocrStatusText').innerText = "Manual Scan Triggered...";
+            await performOcrScan();
+        }
+
+        async function performOcrScan() {
+            const video = document.getElementById('cameraVideo');
+            const canvas = document.getElementById('ocrCanvas');
+            const statusText = document.getElementById('ocrStatusText');
+            const detectedText = document.getElementById('ocrDetectedText');
+            const hud = document.getElementById('hudStatusBadge');
+
+            if (!video.videoWidth) return;
+
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Preprocess canvas for enhanced LCD contrast
+            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const d = imgData.data;
+            for (let i = 0; i < d.length; i += 4) {
+                let v = (d[i] + d[i + 1] + d[i + 2]) / 3;
+                v = v > 120 ? 255 : 0; // Simple binarization
+                d[i] = v; d[i + 1] = v; d[i + 2] = v;
+            }
+            ctx.putImageData(imgData, 0, 0);
+
+            try {
+                if (statusText) statusText.innerText = "Running Tesseract OCR...";
+                const result = await Tesseract.recognize(canvas, 'eng');
+                const rawText = result.data.text || '';
+                
+                if (detectedText) detectedText.innerText = `Raw: "${rawText.replace(/\n/g, ' ')}"`;
+
+                parseOcrResults(rawText);
+            } catch (err) {
+                console.error("OCR Error:", err);
+                if (statusText) statusText.innerText = "Scanning frame...";
+            }
+        }
+
+        function parseOcrResults(text) {
+            const statusText = document.getElementById('ocrStatusText');
+            const hud = document.getElementById('hudStatusBadge');
+            const step = appState.activeScanStep;
+
+            if (step === 1) {
+                // Parse Odometer (5-6 integer digits like 216481)
+                const odoMatches = text.match(/\b(\d{5,6})\b/g);
+                // Parse Tripmeter (decimal xx.x or xxx.x like 275.4)
+                const tripMatches = text.match(/\b(\d{1,3}\.\d)\b/g);
+
+                if (odoMatches && odoMatches.length > 0) {
+                    const validOdo = odoMatches.find(val => parseInt(val) > 10000 && parseInt(val) < 999999);
+                    if (validOdo) {
+                        document.getElementById('inputOdometer').value = validOdo;
+                        if (hud) hud.innerText = `Odometer Found: ${validOdo}`;
+                    }
+                }
+
+                if (tripMatches && tripMatches.length > 0) {
+                    document.getElementById('inputTripmeter').value = tripMatches[0];
+                    if (hud) hud.innerText += ` | Trip: ${tripMatches[0]}`;
+                }
+
+                if (odoMatches || tripMatches) {
+                    calculateTripDeltas();
+                    if (statusText) statusText.innerText = "SUCCESS: Auto-filled Odometer/Trip fields!";
+                    showToast("OCR successfully populated Step 1 values!", "success");
+                }
+            } else if (step === 2) {
+                // Step 2: Gas Pump triad numbers
+                const decimals = text.match(/\b(\d{1,3}\.\d{2,3})\b/g);
+                if (decimals && decimals.length >= 2) {
+                    // Sort decimals logically: largest is usually Total $, middle is Gallons, price is ~3.xxx
+                    const nums = decimals.map(n => parseFloat(n)).sort((a,b) => b - a);
+                    
+                    document.getElementById('inputTotalCost').value = nums[0].toFixed(2);
+                    document.getElementById('inputGallons').value = nums[1].toFixed(3);
+                    
+                    solveTriad('total');
+                    if (statusText) statusText.innerText = "SUCCESS: Auto-filled Fuel Pump fields!";
+                    showToast("OCR populated Gas Pump data!", "success");
+                }
+            } else if (step === 3) {
+                // Step 3: SID AVG Speed (10-80 MPH)
+                const speedMatch = text.match(/\b([1-8]\d\.\d|[1-8]\d)\b/g);
+                if (speedMatch && speedMatch.length > 0) {
+                    document.getElementById('inputSidSpeed').value = speedMatch[0];
+                    updateDrivingProfile();
+                    if (statusText) statusText.innerText = `SUCCESS: Found SID Speed ${speedMatch[0]} MPH`;
+                    showToast("OCR populated SID AVG Speed!", "success");
+                }
+            }
+        }
+
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const img = new Image();
+                img.onload = async function() {
+                    const canvas = document.getElementById('ocrCanvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+
+                    document.getElementById('ocrStatusText').innerText = "Analyzing Uploaded Image...";
+                    const result = await Tesseract.recognize(canvas, 'eng');
+                    parseOcrResults(result.data.text || '');
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        /**
+         * Data Export / Import Tools
+         */
+        function toggleDataMenu() {
+            const dropdown = document.getElementById('dataMenuDropdown');
+            if (dropdown) dropdown.classList.toggle('hidden');
+        }
+
+        function exportCSV() {
+            if (appState.logs.length === 0) {
+                showToast("No records to export.", "info");
+                return;
+            }
+
+            let csv = "ID,Timestamp,Odometer,Tripmeter,Gallons,PricePerGal,TotalCost,MPG,DrivingProfile,Notes\n";
+            appState.logs.forEach(l => {
+                csv += `"${l.id}","${l.timestamp}",${l.odometer},${l.tripmeter || 0},${l.gallons},${l.pricePerGal || 0},${l.totalCost || 0},${l.mpg || 0},"${l.drivingProfile || ''}","${(l.maintenance?.notes || '').replace(/"/g, '""')}"\n`;
+            });
+
+            downloadFile(csv, `saab_93_telemetry_${new Date().toISOString().slice(0,10)}.csv`, 'text/csv');
+        }
+
+        function exportJSON() {
+            const jsonStr = JSON.stringify(appState.logs, null, 2);
+            downloadFile(jsonStr, `saab_93_telemetry_${new Date().toISOString().slice(0,10)}.json`, 'application/json');
+        }
+
+        function importJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (Array.isArray(data)) {
+                        appState.logs = data;
+                        saveLogsToStorage();
+                        updateLogbookUI();
+                        updateDteUI();
+                        showToast(`Successfully imported ${data.length} records!`, "success");
+                    } else {
+                        showToast("Invalid JSON format. Array expected.", "error");
+                    }
+                } catch (err) {
+                    showToast("Failed to parse JSON file.", "error");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function downloadFile(content, fileName, contentType) {
+            const a = document.createElement("a");
+            const file = new Blob([content], { type: contentType });
+            a.href = URL.createObjectURL(file);
+            a.download = fileName;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+
+        /**
+         * Toast Notification Helper
+         */
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            const bgClass = type === 'error' ? 'bg-red-900 border-red-700 text-red-200' :
+                            type === 'success' ? 'bg-emerald-900 border-emerald-700 text-emerald-200' :
+                            'bg-slate-800 border-slate-700 text-slate-200';
+                            
+            toast.className = `fixed bottom-5 right-5 z-50 px-4 py-3 rounded-xl border shadow-xl text-xs font-semibold flex items-center space-x-2 transition-all transform translate-y-2 opacity-0 ${bgClass}`;
+            toast.innerHTML = `<span>${message}</span>`;
+            
+            document.body.appendChild(toast);
+            
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            });
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
+```
